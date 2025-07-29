@@ -18,16 +18,17 @@ Usage:
 Author: Andrea Brugnoli
 Date: 28 July 2025
 """
-
 import numpy as np
 import scipy.sparse as sp
 import scipy.linalg as la
 from math import pi
 import matplotlib.pyplot as plt
-from src.plot_config import configure_matplotlib
+from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 import os
-from src.fem import mass_matrix_lagrange, discrete_gradient
+from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient
+from src.postprocessing.plot_dg import plot_piecewise_constant
+
 
 path_file = os.path.dirname(os.path.abspath(__file__))
 folder_results = path_file + "/results/"
@@ -47,28 +48,28 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
     n_dofs_l = n_elements_l + n_nodes_l
     n_dofs_r = n_elements_r + n_nodes_r
 
-    M_left = mass_matrix_lagrange(coordinates_left, axial_compliance)
+    M_cg_left = mass_matrix_lagrange(coordinates_left, axial_compliance)
     D_left = discrete_gradient(coordinates_left)
     B_left = np.zeros((n_dofs_l, 1))
-    B_left[n_nodes_l - 1] = 1
+    B_left[-1] = 1
 
-    M_right = mass_matrix_lagrange(coordinates_right, density_unit_length)
+    M_cg_right = mass_matrix_lagrange(coordinates_right, density_unit_length)
     D_right = discrete_gradient(coordinates_right)
     B_right = np.zeros((n_dofs_r, 1))
-    B_right[n_elements_r] = 1
+    B_right[0] = 1
 
     mesh_sizes_left = np.diff(coordinates_left)
-    M_mixed_left = sp.block_diag([M_left, density_unit_length * sp.diags(mesh_sizes_left, offsets=0)])
-
-    row1_left = sp.hstack([sp.csr_matrix((n_nodes_l, n_nodes_l)), -D_left.T])
-    row2_left = sp.hstack([D_left, sp.csr_matrix((n_elements_l, n_elements_l))])
-    J_mixed_left = sp.vstack([row1_left, row2_left])
+    M_mixed_left = sp.block_diag([density_unit_length * sp.diags(mesh_sizes_left, offsets=0), M_cg_left])
 
     mesh_sizes_right = np.diff(coordinates_right)
-    M_mixed_right = sp.block_diag([axial_compliance * sp.diags(mesh_sizes_right, offsets=0), M_right])
+    M_mixed_right = sp.block_diag([M_cg_right, axial_compliance * sp.diags(mesh_sizes_right, offsets=0)])
 
-    row1_right = sp.hstack([sp.csr_matrix((n_elements_r, n_elements_r)), D_right])
-    row2_right = sp.hstack([-D_right.T, sp.csr_matrix((n_nodes_r, n_nodes_r))])
+    row1_left = sp.hstack([sp.csr_matrix((n_elements_l, n_elements_l)), D_left])
+    row2_left = sp.hstack([-D_left.T, sp.csr_matrix((n_nodes_l, n_nodes_l))])
+    J_mixed_left = sp.vstack([row1_left, row2_left])
+
+    row1_right = sp.hstack([sp.csr_matrix((n_nodes_r, n_nodes_r)), -D_right.T])
+    row2_right = sp.hstack([D_right, sp.csr_matrix((n_elements_r, n_elements_r))])
     J_mixed_right = sp.vstack([row1_right, row2_right])
 
     M_mixed = sp.block_diag([M_mixed_left, M_mixed_right])
@@ -93,12 +94,8 @@ n_elements = 100  # Number of spatial elements
 
 n_nodes = n_elements + 1
 # Derived parameters
-mesh_size = length/ n_elements  # Spatial step size
 density_unit_length = density * cross_section
 axial_compliance = 1./(young_modulus * cross_section)
-
-# Spatial grid
-coordinates = np.linspace(0, length, n_elements+1)
 
 assert n_elements%2==0
 n_elements_l = n_elements//2
@@ -112,18 +109,13 @@ n_dofs_r = n_elements_r + n_nodes_r
 n_dofs = n_dofs_l + n_dofs_r
 
 coordinates_left = np.linspace(0, length/2, n_nodes_l)
+midpoints_left = 0.5*(coordinates_left[:-1] + coordinates_left[1:])
+
 coordinates_right = np.linspace(length/2, length, n_nodes_r)
-
-midpoints_left = np.zeros(n_elements_l)
-
-for i in range(len(midpoints_left)):
-    midpoints_left[i] = 0.5*(coordinates_left[i] + coordinates_left[i+1])
-
 
 M_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
                                          axial_compliance, density_unit_length)
 n_eigs = 10
-# eigenvalues, eigenvectors = spla.eigs(Jmat, M=Mmat, k=n_eigs, which='SI')  
 eigenvalues, eigenvectors = la.eig(J_mixed.todense(), M_mixed.todense()) 
 pos_imag_indexes = np.imag(eigenvalues) >= 0
 pos_imag_eigenvalues = np.imag(eigenvalues)[pos_imag_indexes]
@@ -133,24 +125,20 @@ omega_vec = pos_imag_eigenvalues[indexes_smallest_eigs]
 pos_imag_eigenvectors = eigenvectors[:, pos_imag_indexes]
 smallest_eigenvectors = pos_imag_eigenvectors[:, indexes_smallest_eigs]
 
-# eigenvectors_array = np.zeros((n_dofs, n_eigs))
-
-
-
 for i in range(n_eigs):
     print(f"Numerical Omega {i+1}: {omega_vec[i]}")
     om_analytical = (2*i+1)*pi/(2*length)
     print(f'Analytical Omega: {om_analytical}')
-    disp_l_real = np.real(smallest_eigenvectors[n_nodes_l:n_dofs_l, i])
-    disp_l_imag = np.imag(smallest_eigenvectors[n_nodes_l:n_dofs_l, i])
+    disp_l_real = np.real(smallest_eigenvectors[:n_elements_l, i])
+    disp_l_imag = np.imag(smallest_eigenvectors[:n_elements_l, i])
 
     if np.linalg.norm(disp_l_real) < 1e-10:
         values_disp_l = disp_l_imag
     else:
         values_disp_l = disp_l_real
     
-    disp_r_real = np.real(smallest_eigenvectors[n_dofs_l+n_elements_r:, i])
-    disp_r_imag = np.imag(smallest_eigenvectors[n_dofs_l+n_elements_r:, i])
+    disp_r_real = np.real(smallest_eigenvectors[n_dofs_l:n_dofs_l+n_nodes_r, i])
+    disp_r_imag = np.imag(smallest_eigenvectors[n_dofs_l:n_dofs_l+n_nodes_r, i])
     if np.linalg.norm(disp_r_real) < 1e-10:
         values_disp_r = disp_r_imag
     else:
@@ -158,9 +146,13 @@ for i in range(n_eigs):
 
     fig = plt.figure()
     axes = fig.add_subplot()
+
+    # x_plot_left, y_plot_left = plot_piecewise_constant(coordinates_left, values_disp_l)
+    # plt.plot(x_plot_left, y_plot_left, label=r"$\mathbb{DG}_0$")
+
     plt.plot(midpoints_left, values_disp_l, label=r"$\mathbb{DG}_0$")
     plt.plot(coordinates_right, values_disp_r, label=r"$\mathbb{L}_1$")
-    plt.legend()
+    plt.legend(loc="best")
     axes.set_xlabel("x")
     axes.set_title(f"Eigenfunction {i+1}, $\omega$ = {omega_vec[i]:.4f}")
     plt.tight_layout()
