@@ -76,19 +76,19 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
     M_diag_left = density_unit_length * mesh_sizes_left
     M_dg_left = create_diag_sparse(M_diag_left, n_elements_l)
     
-    M_mixed_left = block_diag_sparse([M_dg_left, M_cg_left])
+    H_mixed_left = block_diag_sparse([M_dg_left, M_cg_left])
 
     mesh_sizes_right = jnp.diff(coordinates_right)
     M_diag_right = axial_compliance * mesh_sizes_right
     M_dg_right = create_diag_sparse(M_diag_right, n_elements_r)
 
-    M_mixed_right = block_diag_sparse([M_cg_right, M_dg_right])
+    H_mixed_right = block_diag_sparse([M_cg_right, M_dg_right])
     
     # Create J_mixed block matrix
     J_mixed_left = construct_skew_symmetric_block(D_left)
     J_mixed_right = construct_skew_symmetric_block(-D_right.transpose())
 
-    M_mixed = block_diag_sparse([M_mixed_left, M_mixed_right])
+    H_mixed = block_diag_sparse([H_mixed_left, H_mixed_right])
     J_mixed = block_diag_sparse([J_mixed_left, J_mixed_right])
 
     # Upper right block: B_left @ B_right.T
@@ -97,13 +97,13 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
     J_interconnection = construct_skew_symmetric_block(interconnection_ur)
     J_mixed = sparse_add(J_mixed, J_interconnection)
     
-    return M_mixed, J_mixed  # Convert to dense for eigenvalue computation
+    return H_mixed, J_mixed  # Convert to dense for eigenvalue computation
 
 @jit
-def compute_eigenvalues_and_vectors(M_mixed, J_mixed):
+def compute_eigenvalues_and_vectors(H_mixed, J_mixed):
     """JAX-compiled eigenvalue computation"""
     # Use JAX's eigenvalue solver (requires dense matrices)
-    eigenvalues, eigenvectors = jnp.linalg.eig(jnp.linalg.solve(M_mixed, J_mixed))
+    eigenvalues, eigenvectors = jnp.linalg.eig(jnp.linalg.solve(H_mixed, J_mixed))
     return eigenvalues, eigenvectors
 
 def modal_analysis_jax(folder_results, length=2*pi, n_elements=100, n_eigs=10, 
@@ -131,11 +131,11 @@ def modal_analysis_jax(folder_results, length=2*pi, n_elements=100, n_eigs=10,
     coordinates_right = jnp.linspace(length/2, length, n_nodes_r)
 
     # Setup matrices
-    M_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
+    H_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
                                              axial_compliance, density_unit_length)
     
     # Compute eigenvalues and eigenvectors
-    eigenvalues, eigenvectors = compute_eigenvalues_and_vectors(M_mixed.todense(), J_mixed.todense())
+    eigenvalues, eigenvectors = compute_eigenvalues_and_vectors(H_mixed.todense(), J_mixed.todense())
     
     # Process eigenvalues (find positive imaginary parts)
     pos_imag_mask = jnp.imag(eigenvalues) >= 0

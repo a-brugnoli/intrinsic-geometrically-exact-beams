@@ -15,7 +15,7 @@ Dependencies:
     - jax, jaxlib, matplotlib 
 Usage:
 
-Author: Andrea Brugnoli (JAX conversion)
+Author: Andrea Brugnoli 
 Date: 29 July 2025
 """
 import jax
@@ -64,13 +64,13 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
     mesh_sizes_left = jnp.diff(coordinates_left)
     M_diag_left = density_unit_length * mesh_sizes_left
     M_mixed_left_upper = jnp.diag(M_diag_left)
-    M_mixed_left = jnp.block([[M_mixed_left_upper, jnp.zeros((n_elements_l, n_nodes_l))],
+    H_mixed_left = jnp.block([[M_mixed_left_upper, jnp.zeros((n_elements_l, n_nodes_l))],
                               [jnp.zeros((n_nodes_l, n_elements_l)), M_cg_left]])
 
     mesh_sizes_right = jnp.diff(coordinates_right)
     M_diag_right = axial_compliance * mesh_sizes_right
     M_mixed_right_lower = jnp.diag(M_diag_right)
-    M_mixed_right = jnp.block([[M_cg_right, jnp.zeros((n_nodes_r, n_elements_r))],
+    H_mixed_right = jnp.block([[M_cg_right, jnp.zeros((n_nodes_r, n_elements_r))],
                                [jnp.zeros((n_elements_r, n_nodes_r)), M_mixed_right_lower]])
 
     # Interconnection matrices
@@ -86,8 +86,8 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
 
     # Assembly
     total_dofs = n_dofs_l + n_dofs_r
-    M_mixed = jnp.block([[M_mixed_left, jnp.zeros((n_dofs_l, n_dofs_r))],
-                         [jnp.zeros((n_dofs_r, n_dofs_l)), M_mixed_right]])
+    H_mixed = jnp.block([[H_mixed_left, jnp.zeros((n_dofs_l, n_dofs_r))],
+                         [jnp.zeros((n_dofs_r, n_dofs_l)), H_mixed_right]])
     
     J_mixed = jnp.block([[J_mixed_left, jnp.zeros((n_dofs_l, n_dofs_r))],
                          [jnp.zeros((n_dofs_r, n_dofs_l)), J_mixed_right]])
@@ -109,13 +109,13 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
 
     J_mixed = J_mixed + J_interconnection
 
-    return M_mixed, J_mixed
+    return H_mixed, J_mixed
 
 @jit
-def compute_eigenvalues_and_vectors(M_mixed, J_mixed):
+def compute_eigenvalues_and_vectors(H_mixed, J_mixed):
     """JAX-compiled eigenvalue computation"""
     # Use JAX's eigenvalue solver
-    eigenvalues, eigenvectors = jnp.linalg.eig(jnp.linalg.solve(M_mixed, J_mixed))
+    eigenvalues, eigenvectors = jnp.linalg.eig(jnp.linalg.solve(H_mixed, J_mixed))
     return eigenvalues, eigenvectors
 
 def modal_analysis_jax(folder_results, length=2*pi, n_elements=100, n_eigs=10, 
@@ -143,11 +143,11 @@ def modal_analysis_jax(folder_results, length=2*pi, n_elements=100, n_eigs=10,
     coordinates_right = jnp.linspace(length/2, length, n_nodes_r)
 
     # Setup matrices
-    M_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
+    H_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
                                              axial_compliance, density_unit_length)
     
     # Compute eigenvalues and eigenvectors
-    eigenvalues, eigenvectors = compute_eigenvalues_and_vectors(M_mixed, J_mixed)
+    eigenvalues, eigenvectors = compute_eigenvalues_and_vectors(H_mixed, J_mixed)
     
     # Process eigenvalues (find positive imaginary parts)
     pos_imag_mask = jnp.imag(eigenvalues) >= 0

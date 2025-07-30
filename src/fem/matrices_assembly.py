@@ -19,6 +19,9 @@ def mass_matrix_lagrange(coordinates, parameter=1):
         for gp, gw in zip(gauss_points, gauss_weights):
             x_gp = midpoint_element + gp * element_length / 2
             N_lagrange = 1/element_length * np.array([(x_right - x_gp) , (x_gp - x_left)])
+
+            # The factor in front is because of the change of variable in the integral 
+            # going from [-1, 1] to [x_left, x_right]
             M[i:i+2, i:i+2] += parameter * gw * element_length / 2 * np.outer(N_lagrange, \
                                                                               N_lagrange)
 

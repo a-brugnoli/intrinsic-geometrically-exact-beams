@@ -59,10 +59,10 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
     B_right[0] = 1
 
     mesh_sizes_left = np.diff(coordinates_left)
-    M_mixed_left = sp.block_diag([density_unit_length * sp.diags(mesh_sizes_left, offsets=0), M_cg_left])
+    H_mixed_left = sp.block_diag([density_unit_length * sp.diags(mesh_sizes_left, offsets=0), M_cg_left])
 
     mesh_sizes_right = np.diff(coordinates_right)
-    M_mixed_right = sp.block_diag([M_cg_right, axial_compliance * sp.diags(mesh_sizes_right, offsets=0)])
+    H_mixed_right = sp.block_diag([M_cg_right, axial_compliance * sp.diags(mesh_sizes_right, offsets=0)])
 
     row1_left = sp.hstack([sp.csr_matrix((n_elements_l, n_elements_l)), D_left])
     row2_left = sp.hstack([-D_left.T, sp.csr_matrix((n_nodes_l, n_nodes_l))])
@@ -72,7 +72,7 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
     row2_right = sp.hstack([D_right, sp.csr_matrix((n_elements_r, n_elements_r))])
     J_mixed_right = sp.vstack([row1_right, row2_right])
 
-    M_mixed = sp.block_diag([M_mixed_left, M_mixed_right])
+    H_mixed = sp.block_diag([H_mixed_left, H_mixed_right])
     J_mixed = sp.block_diag([J_mixed_left, J_mixed_right])
 
     J_interconnection = sp.lil_matrix((n_dofs_l + n_dofs_r, n_dofs_l + n_dofs_r))
@@ -81,7 +81,7 @@ def setup_mixed_matrices(coordinates_left, coordinates_right,
 
     J_mixed += J_interconnection
 
-    return M_mixed, J_mixed
+    return H_mixed, J_mixed
 
 
 # Parameters
@@ -113,10 +113,10 @@ midpoints_left = 0.5*(coordinates_left[:-1] + coordinates_left[1:])
 
 coordinates_right = np.linspace(length/2, length, n_nodes_r)
 
-M_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
+H_mixed, J_mixed = setup_mixed_matrices(coordinates_left, coordinates_right,
                                          axial_compliance, density_unit_length)
 n_eigs = 10
-eigenvalues, eigenvectors = la.eig(J_mixed.todense(), M_mixed.todense()) 
+eigenvalues, eigenvectors = la.eig(J_mixed.todense(), H_mixed.todense()) 
 pos_imag_indexes = np.imag(eigenvalues) >= 0
 pos_imag_eigenvalues = np.imag(eigenvalues)[pos_imag_indexes]
 indexes_smallest_eigs = np.argsort(pos_imag_eigenvalues)[:n_eigs]
