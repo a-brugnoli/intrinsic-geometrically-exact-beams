@@ -30,8 +30,6 @@ def mass_matrix_lagrange(coordinates, parameter=1):
     return M
 
 
-
-
 def discrete_gradient(coordinates):
     n_nodes = coordinates.shape[0]
     n_elements = n_nodes - 1

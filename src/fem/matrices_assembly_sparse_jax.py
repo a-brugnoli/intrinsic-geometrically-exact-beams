@@ -2,6 +2,9 @@ import jax.numpy as jnp
 from jax import jit
 from jax.experimental import sparse
 
+# Spare matrices are used for efficient storage and computation
+# of large matrices, especially in finite element methods.
+# Jax.sparse is unfortunately only experimental and may not have all features.
 
 @jit
 def mass_matrix_lagrange(coordinates, parameter=1.0):
