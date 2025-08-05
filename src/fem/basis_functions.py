@@ -89,6 +89,8 @@ def piecewise_constant_1d(x_nodes: jnp.ndarray, u_dofs: jnp.ndarray) -> callable
     return lambda x: u_h(x) if x.ndim > 0 else eval_single(x)
 
 
+
+
 if __name__ == "__main__":
     x_nodes = jnp.linspace(0, 1, 11)  # Example nodes
     f_nodes = jnp.sin(2 * jnp.pi * x_nodes)  # Example values at nodes

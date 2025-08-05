@@ -1,5 +1,5 @@
 import numpy as np
-from fem.bcs import solve_bcs
+from fem.bcs_sparse import solve_bcs
 from scipy.sparse.linalg import spsolve
 
 def _valid_bc_keys(dictionary):

@@ -1,7 +1,8 @@
 import numpy as np
 import jax.numpy as jnp
 import jax.scipy.linalg as jla
-from src.fem.matrices_assembly_jax import mass_matrix_lagrange, discrete_gradient
+from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
+from src.linear_algebra.la_jax import skew_block_matrix
 
 class PlanarFreeBeam:
     """
@@ -23,6 +24,10 @@ class PlanarFreeBeam:
                                    'I': second moment of area, 'k': shear coefficient}
 
         """
+        self.n_elem = n_elements
+        self.n_nodes = n_elements + 1
+        self.total_dofs = 2 * self.n_nodes + 2 * self.n_elem
+
         # Geometric properties
         self.L = geometry_props['L']
         self.A = geometry_props['A']
@@ -30,10 +35,7 @@ class PlanarFreeBeam:
         self.k = geometry_props['k']
         
         # Element length
-        self.le = self.L / self.n_elem
-        self.n_elem = n_elements
-        self.n_nodes = n_elements + 1
-        self.total_dofs = 2 * self.n_nodes + 2 * self.n_elem
+        self.h_mesh = self.L / self.n_elem
         
         # Material properties
         self.E = material_props['E']
@@ -57,9 +59,10 @@ class PlanarFreeBeam:
         self.J_nonlinear_matrix = None  # Nonlinear part
         self.B_matrix = None
 
-        self._build_energy_matrix()
+        self._assemble_energy_matrix()
+        self._assemble_linear_interconnection_matrix()
 
-    def _build_energy_matrix(self) -> jnp.ndarray:
+    def _assemble_energy_matrix(self) -> jnp.ndarray:
         """
         Build the energy matrix for the beam.
         
@@ -71,21 +74,21 @@ class PlanarFreeBeam:
         M_lin_vel = mass_matrix_lagrange(self.x_nodes, parameter=self.density_unit_length)
         M_ang_vel = mass_matrix_lagrange(self.x_nodes, parameter=self.rotational_inertia)
 
-        M_axial_res = self.le * self.axial_compliance * jnp.eye(self.n_elem)
-        M_shear_res = self.le * self.shear_compliance * jnp.eye(self.n_elem)
-        M_bending_res = self.le * self.bending_compliance * jnp.eye(self.n_elem)
+        M_axial_res = self.h_mesh * self.axial_compliance * jnp.eye(self.n_elem)
+        M_shear_res = self.h_mesh * self.shear_compliance * jnp.eye(self.n_elem)
+        M_bending_res = self.h_mesh * self.bending_compliance * jnp.eye(self.n_elem)
 
         self.H_matrix = jla.block_diag(
-            M_lin_vel, # x component of velocity
-            M_lin_vel, # y component of velocity
-            M_ang_vel, # angular velocity
-            M_axial_res, # x component of resultant (axial force)
-            M_shear_res, # y component of resultant (shear force)
+            M_lin_vel,    # x component of velocity
+            M_lin_vel,    # y component of velocity
+            M_ang_vel,    # angular velocity
+            M_axial_res,  # x component of resultant (axial force)
+            M_shear_res,  # y component of resultant (shear force)
             M_bending_res # bending moment
         )
         return 
     
-    def _build_linear_interconnection_matrix(self) -> jnp.ndarray:
+    def _assemble_linear_interconnection_matrix(self) -> jnp.ndarray:
         """
         Build the linear interconnection matrix for the beam.
         
@@ -95,14 +98,18 @@ class PlanarFreeBeam:
             The linear interconnection matrix of the beam
         """
         D = discrete_gradient(self.x_nodes)
-        
-        zeros_el_el = jnp.zeros((self.n_elem, self.n_elem))
-        zeros_n_n = jnp.zeros((self.n_nodes, self.n_nodes))
+        M_cg_dg = inner_product_cg_dg(self.x_nodes)
         zeros_n_el = jnp.zeros((self.n_nodes, self.n_elem))
 
-        # TO BE COMPLETED 
-        self.J_linear_matrix = jnp.block([
-            [zeros_n_n, D],
-            [-D.T, zeros_el_el]
+        D_free = jnp.block([
+            [-D.T, zeros_n_el, zeros_n_el],
+            [zeros_n_el, -D.T, zeros_n_el],
+            [zeros_n_el, M_cg_dg, -D.T]
         ])
-        return self.J_linear_matrix
+
+        self.J_linear_matrix = skew_block_matrix(D_free)
+
+
+    def _build_nonlinear_dynamics(self, state_vector) -> jnp.ndarray:
+
+        raise NotImplementedError("Nonlinear dynamics not implemented yet.")

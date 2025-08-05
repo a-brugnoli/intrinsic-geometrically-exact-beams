@@ -1,27 +1,37 @@
 import jax
 import jax.numpy as jnp
-from src.fem.basis_functions_jax import phi_ref
-from src.fem.quadrature import _gauss_quadrature_two_point
+from src.fem.basis_functions import phi_ref
+from src.fem.quadrature import _gauss_quadrature_two_point, eval_interp_at_gauss_node
 
 @jax.jit
 def _element_trilinear_scalar_form_cg(xL, xR, u_local, w_local):
-    # Same as before but returns shape (2,)
+    """
+    Compute the element-level trilinear form ∫ phi_i * u_h * w_h dx for a given element.
+
+    This function evaluates the contribution of an element to the global trilinear form
+    using continuous (P1) basis functions and Gauss quadrature.
+
+    Args:
+        xL: Left coordinate of the element.
+        xR: Right coordinate of the element.
+        u_local: JAX array of degrees of freedom for the solution u_h within the element.
+        w_local: JAX array of degrees of freedom for the weighting function w_h within the element.
+
+    Returns:
+        A JAX array representing the element-level contribution to the trilinear form.
+    """
     xi_q, w_q = _gauss_quadrature_two_point()
     h = xR - xL
     jac = 0.5 * h
 
+    # Shape (2,2), i.e., [phi_0, phi_1] for P1 and number of Gauss points
     phi_vals = jnp.stack([phi_ref(0, xi_q), phi_ref(1, xi_q)])
 
-    def eval_interp(dofs):
-        return jnp.where(
-            dofs.shape[0] == 2,
-            dofs[0] * phi_vals[0] + dofs[1] * phi_vals[1],
-            jnp.full_like(xi_q, dofs[0])
-        )
-
-    u_vals = eval_interp(u_local)
-    w_vals = eval_interp(w_local)
-    integrands = jac * u_vals * w_vals * phi_vals
+    # Shape (2,) i.e. number of gauss points
+    u_vals = eval_interp_at_gauss_node(u_local, xi_q)
+    w_vals = eval_interp_at_gauss_node(w_local, xi_q)
+    integrands = jac * phi_vals * u_vals * w_vals
+    print(f"u_vals.shape: {u_vals.shape}, w_vals.shape: {w_vals.shape}, phi_vals.shape: {phi_vals.shape}, integrands.shape: {integrands.shape}")
     return jnp.dot(integrands, w_q)
 
 
@@ -78,16 +88,12 @@ def _element_trilinear_scalar_form_dg(xL, xR, u_local, w_local):
     h = xR - xL
     jac = 0.5 * h
 
-    def eval_interp(dofs):
-        return jnp.where(
-            dofs.shape[0] == 2,
-            dofs[0] * 0.5 * (1 - xi_q) + dofs[1] * 0.5 * (1 + xi_q),
-            jnp.full_like(xi_q, dofs[0])
-        )
+    # Shape (2,) i.e. number of gauss points
 
-    u_vals = eval_interp(u_local)
-    w_vals = eval_interp(w_local)
+    u_vals = eval_interp_at_gauss_node(u_local, xi_q)
+    w_vals = eval_interp_at_gauss_node(w_local, xi_q)
     integrands = jac * u_vals * w_vals
+    print(f"u_vals.shape: {u_vals.shape}, w_vals.shape: {w_vals.shape}, integrands.shape: {integrands.shape}")
     return jnp.array([jnp.dot(integrands, w_q)])
 
 
@@ -122,7 +128,7 @@ def assemble_trilinear_scalar_form_dg(x_nodes: jnp.ndarray,
 
     form = jnp.zeros(n_elements)
 
-    def body(i, acc):
+    def element_contribution(i, acc):
         xL, xR = x_nodes[i], x_nodes[i + 1]
         u_local = jax.lax.dynamic_slice(u_dofs, (i,), (2,)) if u_is_p1 else jnp.array([u_dofs[i]])
         w_local = jax.lax.dynamic_slice(w_dofs, (i,), (2,)) if w_is_p1 else jnp.array([w_dofs[i]])
@@ -132,32 +138,41 @@ def assemble_trilinear_scalar_form_dg(x_nodes: jnp.ndarray,
         acc = acc.at[i].add(local[0])
         return acc
 
-    return jax.lax.fori_loop(0, n_elements, body, form)
+    return jax.lax.fori_loop(0, n_elements, element_contribution, form)
 
 
 if __name__ == "__main__":
-    N_els = 3
-    x_nodes = jnp.linspace(0.0, 1, N_els + 1)  # 3 elements
+    N_els = 2
+    length = 1
+    x_nodes = jnp.linspace(0.0, length, N_els + 1)  # 3 elements
     x_mids = 0.5 * (x_nodes[:-1] + x_nodes[1:])
 
-    u_dofs_p1 = jnp.cos(jnp.pi * x_nodes)  # P1 interpolation
-    u_dofs_p0 = jnp.cos(jnp.pi * x_mids)  # P1 interpolation
+    alpha = 3
+    u_dofs_p1 = alpha * x_nodes  # P1 interpolation
+    u_dofs_p0 = alpha * x_mids   # P0 interpolation
 
-    w_dofs_p1 = jnp.sin(jnp.pi * x_nodes)
-    w_dofs_p0 = jnp.sin(jnp.pi * x_mids)
+    beta = 5
+    w_dofs_p1 = beta * x_nodes
+    w_dofs_p0 = beta * jnp.pi * x_mids
 
-    # P1 interpolation for u_h
-    L1 = assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_p1, w_dofs_p1)
-    print("P1 Linear Form (P1 u) :", L1)
+    # P1 interpolation for test
+    Lcg = assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_p1, w_dofs_p1)
+    print("P1 Linear Form (P1 u): \n", Lcg)
+    print("Analytical P1 linear form: \n", alpha * beta * length**3 * jnp.array([1/96, 7/48, 17/96]))
 
-    # P1 interpolation for u_h
-    L0 = assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_p0, w_dofs_p1)
-    print("P1 Linear Form (P0 u) :", L0)
+    # Compare with analytical result (P0 linear form)
+    assert jnp.allclose(Lcg, alpha * beta * length**3 * jnp.array([1/96, 7/48, 17/96]))
 
+    # P0 interpolation for test
+    Ldg = assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_p1, w_dofs_p1)
+    print("P0 Linear Form (P1 u): \n", Ldg)
+    print("Analytical P0 linear form: \n", alpha * beta * length**3 * jnp.array([1/24, 7/24]))
 
-    jacobian_L1_wrt_u = jax.jacrev(assemble_trilinear_scalar_form_cg, argnums=1)
-    dL1_du = jacobian_L1_wrt_u(x_nodes, u_dofs_p1, w_dofs_p1)
+    # Compare with analytical result (P0 linear form)
+    assert jnp.allclose(Ldg, alpha*beta*length**3*jnp.array([1/24, 7/24]))
 
-    # The convention for the Jacobian is J_{ij} = ∂L_i/∂u_j
+    # jacobian_Lcg_u = jax.jacrev(assemble_trilinear_scalar_form_cg, argnums=1)
+    # dL1_du = jacobian_Lcg_u(x_nodes, u_dofs_p1, w_dofs_p1)
 
-    print("Jacobian of P1 Linear Form w.r.t. u_dofs (P1 u): \n", dL1_du)
+    # # The convention for the Jacobian is J_{ij} = ∂L_i/∂u_j
+    # print("Jacobian of P1 Linear Form w.r.t. u_dofs (P1 u): \n", dL1_du)

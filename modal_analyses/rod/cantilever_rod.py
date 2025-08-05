@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import os
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
-from src.fem.matrices_assembly_jax import mass_matrix_lagrange, discrete_gradient
+from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient
 from src.postprocessing.plot_dg import plot_piecewise_constant
 
 # Enable 64-bit precision for better numerical accuracy

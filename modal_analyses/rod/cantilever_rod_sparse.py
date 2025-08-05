@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 import os
-from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient
+from src.fem.matrices_assembly_sparse import mass_matrix_lagrange, discrete_gradient
 from src.postprocessing.plot_dg import plot_piecewise_constant
 
 
