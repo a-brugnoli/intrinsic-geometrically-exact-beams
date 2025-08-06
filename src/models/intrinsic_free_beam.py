@@ -1,15 +1,17 @@
-import numpy as np
 import jax.numpy as jnp
 import jax.scipy.linalg as jla
 from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
 from src.linear_algebra.la_jax import skew_block_matrix
+import jax
+from functools import partial
 
-class PlanarFreeBeam:
+
+class IntrinsicPlanarFreeBeam:
     """
     Represents a geometrically exact planar free beam 
     """
 
-    def __init__(self, n_elements, geometry_props, material_props):
+    def __init__(self, n_elements, geometrical_props, material_props):
         """
         Initialize the beam finite element model.
         
@@ -29,10 +31,10 @@ class PlanarFreeBeam:
         self.total_dofs = 2 * self.n_nodes + 2 * self.n_elem
 
         # Geometric properties
-        self.L = geometry_props['L']
-        self.A = geometry_props['A']
-        self.I = geometry_props['I']
-        self.k = geometry_props['k']
+        self.L = geometrical_props['L']
+        self.A = geometrical_props['A']
+        self.I = geometrical_props['I']
+        self.k = geometrical_props['k']
         
         # Element length
         self.h_mesh = self.L / self.n_elem
@@ -53,16 +55,9 @@ class PlanarFreeBeam:
         # Node coordinates
         self.x_nodes = jnp.linspace(0, self.L, self.n_nodes)
         
-        # Initialize system matrices
-        self.H_matrix = None  # Energy matrix
-        self.J_linear_matrix = None  # Linear part 
-        self.J_nonlinear_matrix = None  # Nonlinear part
-        self.B_matrix = None
 
-        self._assemble_energy_matrix()
-        self._assemble_linear_interconnection_matrix()
-
-    def _assemble_energy_matrix(self) -> jnp.ndarray:
+    @partial(jax.jit, static_argnums=0)
+    def assemble_energy_matrix(self) -> jnp.ndarray:
         """
         Build the energy matrix for the beam.
         
@@ -78,7 +73,7 @@ class PlanarFreeBeam:
         M_shear_res = self.h_mesh * self.shear_compliance * jnp.eye(self.n_elem)
         M_bending_res = self.h_mesh * self.bending_compliance * jnp.eye(self.n_elem)
 
-        self.H_matrix = jla.block_diag(
+        H_matrix = jla.block_diag(
             M_lin_vel,    # x component of velocity
             M_lin_vel,    # y component of velocity
             M_ang_vel,    # angular velocity
@@ -86,9 +81,10 @@ class PlanarFreeBeam:
             M_shear_res,  # y component of resultant (shear force)
             M_bending_res # bending moment
         )
-        return 
+        return H_matrix
     
-    def _assemble_linear_interconnection_matrix(self) -> jnp.ndarray:
+    @partial(jax.jit, static_argnums=0)
+    def assemble_linear_interconnection_matrix(self) -> jnp.ndarray:
         """
         Build the linear interconnection matrix for the beam.
         
@@ -107,7 +103,9 @@ class PlanarFreeBeam:
             [zeros_n_el, M_cg_dg, -D.T]
         ])
 
-        self.J_linear_matrix = skew_block_matrix(D_free)
+        J_linear_matrix = skew_block_matrix(D_free)
+
+        return J_linear_matrix
 
 
     def _build_nonlinear_dynamics(self, state_vector) -> jnp.ndarray:
