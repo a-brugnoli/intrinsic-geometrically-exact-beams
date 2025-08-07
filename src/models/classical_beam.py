@@ -101,7 +101,6 @@ class ClassicalPlanarBeam:
             [0, -1, 0, 1]
         ])
         
-        # One can consider reduced integration to avoid locking
         # K_shear = GAk/Le  * jnp.array([
         #     [1,    Le/2,    -1,    Le/2],
         #     [Le/2, Le**2/3, -Le/2, Le**2/6],
@@ -109,7 +108,7 @@ class ClassicalPlanarBeam:
         #     [Le/2, Le**2/6, -Le/2, Le**2/3]
         # ])
 
-        # One can consider reduced integration to avoid locking
+        # This is the stiffness matrix with reduced integration to avoid locking
         K_shear = GAk/Le  * jnp.array([
             [1,    Le/2,    -1,    Le/2],
             [Le/2, Le**2/4, -Le/2, Le**2/4],
@@ -122,7 +121,7 @@ class ClassicalPlanarBeam:
         # Calculate mass matrix [M]
         # Translational inertia contribution
 
-        M_trans = self.rho * self.A * self.h_mesh * jnp.array([
+        M_trans = self.rho * self.A * Le * jnp.array([
             [1/3, 0, 1/6, 0],
             [0, 0, 0, 0],
             [1/6, 0, 1/3, 0],
@@ -130,7 +129,7 @@ class ClassicalPlanarBeam:
         ])
         
         # Rotational inertia contribution
-        M_rot = self.rho * self.I * self.h_mesh * jnp.array([
+        M_rot = self.rho * self.I * Le * jnp.array([
             [0, 0, 0, 0],
             [0, 1/3, 0, 1/6],
             [0, 0, 0, 0],
@@ -172,23 +171,17 @@ class ClassicalPlanarBeam:
             # Element connectivity
             dofs_e = jnp.array([e, e + 1])
             
-            # Use at[] for functional updates
-            M_rod_new = M_rod_curr.at[dofs_e[0], dofs_e[0]].add(Me_rod[0, 0])
-            M_rod_new = M_rod_new.at[dofs_e[0], dofs_e[1]].add(Me_rod[0, 1])
-            M_rod_new = M_rod_new.at[dofs_e[1], dofs_e[0]].add(Me_rod[1, 0])
-            M_rod_new = M_rod_new.at[dofs_e[1], dofs_e[1]].add(Me_rod[1, 1])
-            
-            K_rod_new = K_rod_curr.at[dofs_e[0], dofs_e[0]].add(Ke_rod[0, 0])
-            K_rod_new = K_rod_new.at[dofs_e[0], dofs_e[1]].add(Ke_rod[0, 1])
-            K_rod_new = K_rod_new.at[dofs_e[1], dofs_e[0]].add(Ke_rod[1, 0])
-            K_rod_new = K_rod_new.at[dofs_e[1], dofs_e[1]].add(Ke_rod[1, 1])
-            
-            return (M_rod_new, K_rod_new), None
+            for i in range(2):
+                for j in range(2):
+                    M_rod_curr = M_rod_curr.at[dofs_e[i], dofs_e[j]].add(Me_rod[i, j])
+                    K_rod_curr = K_rod_curr.at[dofs_e[i], dofs_e[j]].add(Ke_rod[i, j])
 
-        (M_rod, K_rod), _ = jax.lax.scan(assemble_rod_element, 
+            
+            return (M_rod_curr, K_rod_curr), None
+
+        (M_rod, K_rod), ys = jax.lax.scan(assemble_rod_element, 
                                         (M_rod, K_rod), 
                                         jnp.arange(self.n_elem))
-
         # Timoshenko beam matrices
         n_dofs_beam = 2 * (self.n_elem + 1)  # 2 DOFs per node (w, phi)
 
@@ -216,57 +209,6 @@ class ClassicalPlanarBeam:
                                         jnp.arange(self.n_elem))
 
         # Use JAX's block_diag equivalent
-        M_matrix = jla.block_diag(M_rod, M_beam)
-        K_matrix = jla.block_diag(K_rod, K_beam)
-        
-        return M_matrix, K_matrix
-
-
-# Alternative more efficient assembly function using vectorized operations
-    @partial(jax.jit, static_argnums=0)
-    def assemble_matrices_vectorized(self):
-        """
-        Vectorized assembly of global mass and stiffness matrices using JAX.
-        This version is more efficient for larger systems.
-        """
-        
-
-        # Rod assembly
-        n_dofs_rod = self.n_elem + 1
-        Me_rod, Ke_rod = self._elementary_matrices_rod()
-        
-        # Create indices for assembly
-        rod_indices_i = jnp.repeat(jnp.arange(self.n_elem)[:, None], 2, axis=1) + jnp.array([0, 1])
-        rod_indices_j = rod_indices_i.copy()
-        rod_indices_i = rod_indices_i.flatten()
-        rod_indices_j = rod_indices_j.flatten()
-        
-        # Flatten elementary matrices and repeat for all elements
-        Me_rod_flat = jnp.tile(Me_rod.flatten(), self.n_elem)
-        Ke_rod_flat = jnp.tile(Ke_rod.flatten(), self.n_elem)
-        
-        # Assemble using scatter_add
-        M_rod = jnp.zeros((n_dofs_rod, n_dofs_rod)).at[rod_indices_i, rod_indices_j].add(Me_rod_flat)
-        K_rod = jnp.zeros((n_dofs_rod, n_dofs_rod)).at[rod_indices_i, rod_indices_j].add(Ke_rod_flat)
-
-        # Beam assembly
-        n_dofs_beam = 2 * (self.n_elem + 1)
-        Ke_beam, Me_beam = self._timoshenko_beam_elementary_matrices()
-        
-        # Create indices for beam assembly
-        beam_indices_i = jnp.repeat(jnp.arange(self.n_elem)[:, None], 4, axis=1) * 2 + jnp.array([0, 1, 2, 3])
-        beam_indices_j = beam_indices_i.copy()
-        beam_indices_i = beam_indices_i.flatten()
-        beam_indices_j = beam_indices_j.flatten()
-        
-        # Flatten elementary matrices and repeat for all elements
-        Me_beam_flat = jnp.tile(Me_beam.flatten(), self.n_elem)
-        Ke_beam_flat = jnp.tile(Ke_beam.flatten(), self.n_elem)
-        
-        # Assemble using scatter_add
-        M_beam = jnp.zeros((n_dofs_beam, n_dofs_beam)).at[beam_indices_i, beam_indices_j].add(Me_beam_flat)
-        K_beam = jnp.zeros((n_dofs_beam, n_dofs_beam)).at[beam_indices_i, beam_indices_j].add(Ke_beam_flat)
-
         M_matrix = jla.block_diag(M_rod, M_beam)
         K_matrix = jla.block_diag(K_rod, K_beam)
         
