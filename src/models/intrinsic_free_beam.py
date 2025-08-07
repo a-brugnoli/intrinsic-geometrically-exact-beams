@@ -123,7 +123,7 @@ class IntrinsicPlanarFreeBeam:
         lin_momentum = self.density_unit_length * lin_vel
 
         ang_vel = jax.lax.dynamic_slice_in_dim(coenergy_vector, self.n_lin_vel, self.n_ang_vel)
-        ang_momentum = self.rotational_inertia * ang_vel
+        # ang_momentum = self.rotational_inertia * ang_vel
 
         idx_force = self.n_lin_vel + self.n_ang_vel
         force_resultant = jax.lax.dynamic_slice_in_dim(coenergy_vector, idx_force, self.n_force)
@@ -141,8 +141,8 @@ class IntrinsicPlanarFreeBeam:
         nonlinear_dynamics_ang_vel = + assemble_2d_cross_skew_adjoint_form_cg(self.x_nodes, lin_momentum, lin_vel) \
                                      + assemble_2d_cross_skew_adjoint_form_cg(self.x_nodes, strain, force_resultant)
 
-        nonlinear_dynamics_force = - assemble_2d_cross_form_cg(self.x_nodes, lin_vel, curvature) \
-                                   + assemble_2d_cross_form_cg(self.x_nodes, strain, lin_vel)
+        nonlinear_dynamics_force = - assemble_2d_cross_form_dg(self.x_nodes, lin_vel, curvature) \
+                                   + assemble_2d_cross_form_dg(self.x_nodes, strain, lin_vel)
         
         nonlinear_dynamics_moment = jnp.zeros(self.n_moment)
 

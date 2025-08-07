@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from src.time_integration.utilities import implicit_midpoint_step_dae, simulate
+from src.time_integration.utilities import simulate
 # Physical parameters
 g = 9.81  # gravity
 l = 1.0   # length of pendulum
