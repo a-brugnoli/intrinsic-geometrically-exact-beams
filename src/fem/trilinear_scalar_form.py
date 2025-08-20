@@ -31,7 +31,6 @@ def _element_trilinear_scalar_form_cg(xL, xR, u_local, w_local):
     u_vals = eval_interp_at_gauss_node(u_local, xi_q)
     w_vals = eval_interp_at_gauss_node(w_local, xi_q)
     integrands = jac * phi_vals * u_vals * w_vals
-    print(f"u_vals.shape: {u_vals.shape}, w_vals.shape: {w_vals.shape}, phi_vals.shape: {phi_vals.shape}, integrands.shape: {integrands.shape}")
     return jnp.dot(integrands, w_q)
 
 
@@ -93,7 +92,6 @@ def _element_trilinear_scalar_form_dg(xL, xR, u_local, w_local):
     u_vals = eval_interp_at_gauss_node(u_local, xi_q)
     w_vals = eval_interp_at_gauss_node(w_local, xi_q)
     integrands = jac * u_vals * w_vals
-    print(f"u_vals.shape: {u_vals.shape}, w_vals.shape: {w_vals.shape}, integrands.shape: {integrands.shape}")
     return jnp.array([jnp.dot(integrands, w_q)])
 
 

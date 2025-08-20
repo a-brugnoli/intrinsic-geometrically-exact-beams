@@ -141,9 +141,9 @@ class IntrinsicPlanarFreeBeam:
         nonlinear_dynamics_ang_vel = + assemble_2d_cross_skew_adjoint_form_cg(self.x_nodes, lin_momentum, lin_vel) \
                                      + assemble_2d_cross_skew_adjoint_form_cg(self.x_nodes, strain, force_resultant)
 
-        nonlinear_dynamics_force = - assemble_2d_cross_form_dg(self.x_nodes, lin_vel, curvature) \
-                                   + assemble_2d_cross_form_dg(self.x_nodes, strain, lin_vel)
-        
+        nonlinear_dynamics_force = - assemble_2d_cross_form_dg(self.x_nodes, lin_vel, curvature)  \
+                                    + assemble_2d_cross_form_dg(self.x_nodes, strain, ang_vel)
+
         nonlinear_dynamics_moment = jnp.zeros(self.n_moment)
 
         nonlinear_dynamics = jnp.concatenate([
@@ -159,20 +159,52 @@ class IntrinsicPlanarFreeBeam:
     def assemble_control_matrix(self):
         """
         Assemble the control operator considering the following orderning of the control vector:
-        u = [N_x(x=0), N_x(x=L), N_y(x=0), N_y(x=L), M_z(x=0), M_z(x=L)]
+        u = [N_x(x=0), N_y(x=0), M_z(x=0), N_x(x=L), N_y(x=L), M_z(x=L)]
         """
-        B = jnp.zeros((self.n_dofs, 4))
+        B = jnp.zeros((self.n_dofs, 6))
 
-        # Input for v_x
+        # Input at 0
         B = B.at[0, 0].set(1)
-        B = B.at[self.n_nodes-1, 1].set(1)
+        B = B.at[self.n_nodes, 1].set(1)
+        B = B.at[self.n_lin_vel, 2].set(1)
 
-        # Input for v_y
-        B = B.at[self.n_nodes, 2].set(1)
-        B = B.at[self.n_lin_vel-1, 3].set(1)
-
-        # Input for w_z
-        B = B.at[self.n_lin_vel, 4].set(1)
+        # Input at L
+        B = B.at[self.n_nodes-1, 3].set(1)
+        B = B.at[self.n_lin_vel-1, 4].set(1)
         B = B.at[self.n_lin_vel + self.n_ang_vel-1, 5].set(1)
 
         return B
+    
+    @partial(jax.jit, static_argnums=0)
+    def compute_energy(self, coenergy_sol):
+        # Apply H_matrix to all columns
+        H_matrix = self.assemble_matrices()[0]
+        Hx = H_matrix @ coenergy_sol  # shape (n_states, n_steps)
+
+        # Compute column-wise quadratic forms
+        energy_vec = 0.5 * jnp.sum(coenergy_sol * Hx, axis=0)  # shape (n_steps,)
+        return energy_vec
+    
+    @partial(jax.jit, static_argnums=0)
+    def compute_kinetic_energy(self, velocity_sol):
+        H_matrix = self.assemble_matrices()[0]
+
+        n_dofs_vel = self.n_lin_vel + self.n_ang_vel
+        H_velocity = H_matrix[:n_dofs_vel, :n_dofs_vel]
+        Hx = H_velocity @ velocity_sol 
+
+        # Compute column-wise quadratic forms
+        kinetic_energy_vec = 0.5 * jnp.sum(velocity_sol * Hx, axis=0)  # shape (n_steps,)
+        return kinetic_energy_vec
+    
+    @partial(jax.jit, static_argnums=0)
+    def compute_deformation_energy(self, stress_sol):
+        # Apply H_matrix to all columns
+        H_matrix = self.assemble_matrices()[0]
+        n_dofs_vel = self.n_lin_vel + self.n_ang_vel
+        H_stress = H_matrix[n_dofs_vel:, n_dofs_vel:]
+        Hx = H_stress @ stress_sol  # shape (n_states, n_steps)
+
+        # Compute column-wise quadratic forms
+        deformation_energy_vec = 0.5 * jnp.sum(stress_sol * Hx, axis=0)  # shape (n_steps,)
+        return deformation_energy_vec

@@ -1,13 +1,12 @@
 # Beam and material parameters
-length = 1.0              # Total length (m)
-E = 210e9            # Young's modulus (Pa)
-G = 80.77e9          # Shear modulus (Pa)
-rho = 7800           # Density (kg/m³)
-b = 0.1             # Width (m)
-h = 0.1             # Height (m)
-A = b * h            # Cross-sectional area (m²)
-I = b * h**3 / 12    # Second moment of area (m^4)
-kappa = 5/6          # Shear correction factor
+length = 10.0   # Total length (m)
+
+kappa = 1       # Shear correction factor
+A = 1           # Cross-sectional area (m²)
+I = 10          # Second moment of area (m^4)
+E = 10          # Young's modulus (Pa)
+G = 1e4         # Shear modulus (Pa)
+rho = 1         # Density (kg/m³)
 
 geometrical_props = {
     'L': length,   # Length of the beam

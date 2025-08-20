@@ -180,7 +180,7 @@ def assemble_2d_cross_form_dg(x_nodes, u_dofs, w_dofs):
     form_x = assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_x, w_dofs)   
     form_y = assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_y, w_dofs)
 
-    return jnp.concatenate([form_x, form_y], axis=0)
+    return jnp.concatenate([form_y, -form_x], axis=0)
 
 
 @jax.jit
