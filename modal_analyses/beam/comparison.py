@@ -10,7 +10,8 @@ from data import geometrical_props, material_props
 
 n_elements = 50  # Number of finite elements
 intrinsic_beam = IntrinsicPlanarFreeBeam(n_elements, geometrical_props, material_props)
-H_matrix, J_linear_matrix = intrinsic_beam.assemble_matrices()
+H_matrix = intrinsic_beam.assemble_energy_matrix()
+J_linear_matrix = intrinsic_beam.assemble_linear_interconnection_matrix()
 
 classical_beam = ClassicalPlanarBeam(n_elements, geometrical_props, material_props)
 M_matrix, K_matrix = classical_beam.assemble_matrices()

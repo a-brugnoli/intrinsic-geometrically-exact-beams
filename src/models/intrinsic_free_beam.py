@@ -73,8 +73,9 @@ class IntrinsicPlanarFreeBeam:
     def set_bending_compliance(self, bending_compliance):
         self.bending_compliance = bending_compliance        
 
+
     @partial(jax.jit, static_argnums=0)
-    def assemble_matrices(self) -> jnp.ndarray:
+    def assemble_energy_matrix(self) -> jnp.ndarray:
         """
         Assemble the energy and interconnection matrix for the beam
         
@@ -101,6 +102,17 @@ class IntrinsicPlanarFreeBeam:
             M_moment    # bending moment
         )
 
+        return H_matrix
+
+    def assemble_linear_interconnection_matrix(self) -> jnp.ndarray:
+        """
+        Assemble the energy and interconnection matrix for the beam
+        
+        Returns:
+        --------
+        J_linear : jnp.ndarray
+            The linear interconnection matrix of the beam
+        """
         D = discrete_gradient(self.x_nodes)
         M_cg_dg = inner_product_cg_dg(self.x_nodes)
         zeros_n_el = jnp.zeros((self.n_nodes, self.n_elem))
@@ -113,7 +125,7 @@ class IntrinsicPlanarFreeBeam:
 
         J_linear_matrix = skew_block_matrix(D_free)
 
-        return H_matrix, J_linear_matrix
+        return J_linear_matrix
     
     @partial(jax.jit, static_argnums=0)
     def assemble_nonlinear_dynamics(self, coenergy_vector) -> jnp.ndarray:
@@ -176,35 +188,19 @@ class IntrinsicPlanarFreeBeam:
         return B
     
     @partial(jax.jit, static_argnums=0)
-    def compute_energy(self, coenergy_sol):
-        # Apply H_matrix to all columns
-        H_matrix = self.assemble_matrices()[0]
-        Hx = H_matrix @ coenergy_sol  # shape (n_states, n_steps)
-
-        # Compute column-wise quadratic forms
-        energy_vec = 0.5 * jnp.sum(coenergy_sol * Hx, axis=0)  # shape (n_steps,)
-        return energy_vec
-    
-    @partial(jax.jit, static_argnums=0)
-    def compute_kinetic_energy(self, velocity_sol):
-        H_matrix = self.assemble_matrices()[0]
-
+    def compute_energies(self, coenergy_sol):
         n_dofs_vel = self.n_lin_vel + self.n_ang_vel
-        H_velocity = H_matrix[:n_dofs_vel, :n_dofs_vel]
-        Hx = H_velocity @ velocity_sol 
+        velocity_sol = coenergy_sol[:n_dofs_vel, :]
+        stress_sol = coenergy_sol[n_dofs_vel:, :]
+
+        H_total = self.assemble_energy_matrix()
+        H_kinetic = H_total[:n_dofs_vel, :n_dofs_vel]
+        H_stress = H_total[n_dofs_vel:, n_dofs_vel:]
 
         # Compute column-wise quadratic forms
-        kinetic_energy_vec = 0.5 * jnp.sum(velocity_sol * Hx, axis=0)  # shape (n_steps,)
-        return kinetic_energy_vec
+        energy_vec = 0.5 * jnp.sum(coenergy_sol *  (H_total @ coenergy_sol), axis=0)  
+        kinetic_energy_vec = 0.5 * jnp.sum(velocity_sol * (H_kinetic @ velocity_sol), axis=0)  
+        deformation_energy_vec = 0.5 * jnp.sum(stress_sol * (H_stress @ stress_sol), axis=0)  
+
+        return energy_vec, kinetic_energy_vec, deformation_energy_vec
     
-    @partial(jax.jit, static_argnums=0)
-    def compute_deformation_energy(self, stress_sol):
-        # Apply H_matrix to all columns
-        H_matrix = self.assemble_matrices()[0]
-        n_dofs_vel = self.n_lin_vel + self.n_ang_vel
-        H_stress = H_matrix[n_dofs_vel:, n_dofs_vel:]
-        Hx = H_stress @ stress_sol  # shape (n_states, n_steps)
-
-        # Compute column-wise quadratic forms
-        deformation_energy_vec = 0.5 * jnp.sum(stress_sol * Hx, axis=0)  # shape (n_steps,)
-        return deformation_energy_vec

@@ -56,7 +56,18 @@ def newton_solver(fz_func, z0, tol=1e-8, max_iter=20):
         z, i = state
         return (jnp.linalg.norm(fz_func(z)) > tol) & (i < max_iter)
 
-    z_final, _ = jax.lax.while_loop(cond_fn, body_fn, (z0, 0))
+    z_final, iter_count = jax.lax.while_loop(cond_fn, body_fn, (z0, 0))
+
+    # Compute residual norm after iteration
+    final_residual = jnp.linalg.norm(fz_func(z_final))
+    
+
+    # JAX-compatible print
+    jax.debug.print(
+        "Newton terminated after {i} iterations: (residual = {res:.3e})",
+        i=iter_count, res=final_residual
+    )
+
     return z_final
 
 if __name__ == "__main__":

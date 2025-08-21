@@ -18,7 +18,7 @@ jax.jit
 def f(x, t):
     theta, omega = x
     tau = torque(t)
-    return jnp.array([omega, - g *l* jnp.sin(theta) + tau ])
+    return jnp.array([omega, - g *l* jnp.sin(theta) + tau])
 
 # Initial condition: angle 90 degrees, no velocity
 x0 = jnp.array([jnp.pi / 2, 0.0])
