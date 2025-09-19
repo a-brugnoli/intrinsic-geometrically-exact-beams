@@ -2,14 +2,13 @@ import jax.numpy as jnp
 import jax.scipy.linalg as jla
 from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
 from src.fem.trilinear_vector_form import assemble_2d_cross_form_cg, assemble_2d_cross_form_dg, \
-                            assemble_2d_cross_skew_adjoint_form_cg, assemble_2d_cross_skew_adjoint_form_dg
-      
+                                          assemble_2d_cross_skew_adjoint_form_cg
 from src.linear_algebra.la_jax import skew_block_matrix
 import jax
 from functools import partial
+from .intrinsic_generic_beam import IntrinsicBeam
 
-
-class IntrinsicPlanarFreeBeam:
+class IntrinsicPlanarFreeBeam(IntrinsicBeam):
     """
     Represents a geometrically exact planar free beam 
     """
@@ -29,49 +28,13 @@ class IntrinsicPlanarFreeBeam:
                                    'I': second moment of area, 'k': shear coefficient}
 
         """
-        self.n_elem = n_elements
-        self.n_nodes = n_elements + 1
-        self.n_dofs = 3 * self.n_nodes + 3 * self.n_elem
-
-        # Geometric properties
-        self.L = geometrical_props['L']
-        self.A = geometrical_props['A']
-        self.I = geometrical_props['I']
-        self.k = geometrical_props['k']
-        
-        # Element length
-        self.h_mesh = self.L / self.n_elem
-        
-        # Material properties
-        self.E = material_props['E']
-        self.G = material_props['G']
-        self.rho = material_props['rho']
-
-        # Physical quantities for the dynamical system
-        self.density_unit_length = self.rho * self.A
-        self.rotational_inertia = self.rho * self.I
-
-        self.axial_compliance = 1 / (self.E * self.A)
-        self.shear_compliance = 1 / (self.k * self.G * self.A)
-        self.bending_compliance = 1 / (self.E * self.I)
-        
-        # Node coordinates
-        self.x_nodes = jnp.linspace(0, self.L, self.n_nodes)
+        super().__init__(n_elements, geometrical_props, material_props)
 
         # Dimension of different partitions
         self.n_lin_vel = 2 * self.n_nodes
         self.n_ang_vel = self.n_nodes
         self.n_force = 2 * self.n_elem
-        self.n_moment = self.n_elem    
-
-    def set_axial_compliance(self, axial_compliance):
-        self.axial_compliance = axial_compliance
-
-    def set_shear_compliance(self, shear_compliance):
-        self.shear_compliance = shear_compliance
-
-    def set_bending_compliance(self, bending_compliance):
-        self.bending_compliance = bending_compliance        
+        self.n_moment = self.n_elem   
 
 
     @partial(jax.jit, static_argnums=0)
@@ -83,8 +46,6 @@ class IntrinsicPlanarFreeBeam:
         --------
         H : jnp.ndarray
             The energy matrix of the beam
-        J_linear : jnp.ndarray
-            The linear interconnection matrix of the beam
         """
         M_lin_vel = mass_matrix_lagrange(self.x_nodes, parameter=self.density_unit_length)
         M_ang_vel = mass_matrix_lagrange(self.x_nodes, parameter=self.rotational_inertia)
@@ -99,7 +60,7 @@ class IntrinsicPlanarFreeBeam:
             M_ang_vel,       # angular velocity
             M_axial_for,     # x component of resultant (axial force)
             M_shear_for,     # y component of resultant (shear force)
-            M_moment    # bending moment
+            M_moment         # bending moment
         )
 
         return H_matrix
@@ -115,12 +76,12 @@ class IntrinsicPlanarFreeBeam:
         """
         D = discrete_gradient(self.x_nodes)
         M_cg_dg = inner_product_cg_dg(self.x_nodes)
-        zeros_n_el = jnp.zeros((self.n_nodes, self.n_elem))
+        zeros_nodes_el = jnp.zeros((self.n_nodes, self.n_elem))
 
         D_free = jnp.block([
-            [-D.T, zeros_n_el, zeros_n_el],
-            [zeros_n_el, -D.T, zeros_n_el],
-            [zeros_n_el, M_cg_dg, -D.T]
+            [-D.T, zeros_nodes_el, zeros_nodes_el],
+            [zeros_nodes_el, -D.T, zeros_nodes_el],
+            [zeros_nodes_el, M_cg_dg, -D.T]
         ])
 
         J_linear_matrix = skew_block_matrix(D_free)
@@ -130,21 +91,8 @@ class IntrinsicPlanarFreeBeam:
     @partial(jax.jit, static_argnums=0)
     def assemble_nonlinear_dynamics(self, coenergy_vector) -> jnp.ndarray:
 
-        lin_vel = jax.lax.dynamic_slice_in_dim(coenergy_vector, 0, self.n_lin_vel)
-        lin_vel = lin_vel.reshape((2, -1)).T
-        lin_momentum = self.density_unit_length * lin_vel
-
-        ang_vel = jax.lax.dynamic_slice_in_dim(coenergy_vector, self.n_lin_vel, self.n_ang_vel)
-        # ang_momentum = self.rotational_inertia * ang_vel
-
-        idx_force = self.n_lin_vel + self.n_ang_vel
-        force_resultant = jax.lax.dynamic_slice_in_dim(coenergy_vector, idx_force, self.n_force)
-        force_resultant = force_resultant.reshape((2, -1)).T
-        strain = force_resultant * jnp.array([self.axial_compliance, self.shear_compliance])
-
-        idx_moment = self.n_lin_vel + self.n_ang_vel + self.n_force
-        moment = jax.lax.dynamic_slice_in_dim(coenergy_vector, idx_moment, self.n_moment)
-        curvature = self.bending_compliance * moment
+        lin_vel, ang_vel, force_resultant, _ = self.split_coenergy_vector(coenergy_vector)
+        lin_momentum, _, strain, curvature = self.compute_costates(coenergy_vector)
 
 
         nonlinear_dynamics_lin_vel = + assemble_2d_cross_form_cg(self.x_nodes, lin_momentum, ang_vel) \
@@ -171,7 +119,7 @@ class IntrinsicPlanarFreeBeam:
     def assemble_control_matrix(self):
         """
         Assemble the control operator considering the following orderning of the control vector:
-        u = [N_x(x=0), N_y(x=0), M_z(x=0), N_x(x=L), N_y(x=L), M_z(x=L)]
+        u = [-N_x(x=0), -N_y(x=0), -M_z(x=0), N_x(x=L), N_y(x=L), M_z(x=L)]
         """
         B = jnp.zeros((self.n_dofs, 6))
 
@@ -186,21 +134,4 @@ class IntrinsicPlanarFreeBeam:
         B = B.at[self.n_lin_vel + self.n_ang_vel-1, 5].set(1)
 
         return B
-    
-    @partial(jax.jit, static_argnums=0)
-    def compute_energies(self, coenergy_sol):
-        n_dofs_vel = self.n_lin_vel + self.n_ang_vel
-        velocity_sol = coenergy_sol[:n_dofs_vel, :]
-        stress_sol = coenergy_sol[n_dofs_vel:, :]
-
-        H_total = self.assemble_energy_matrix()
-        H_kinetic = H_total[:n_dofs_vel, :n_dofs_vel]
-        H_stress = H_total[n_dofs_vel:, n_dofs_vel:]
-
-        # Compute column-wise quadratic forms
-        energy_vec = 0.5 * jnp.sum(coenergy_sol *  (H_total @ coenergy_sol), axis=0)  
-        kinetic_energy_vec = 0.5 * jnp.sum(velocity_sol * (H_kinetic @ velocity_sol), axis=0)  
-        deformation_energy_vec = 0.5 * jnp.sum(stress_sol * (H_stress @ stress_sol), axis=0)  
-
-        return energy_vec, kinetic_energy_vec, deformation_energy_vec
     

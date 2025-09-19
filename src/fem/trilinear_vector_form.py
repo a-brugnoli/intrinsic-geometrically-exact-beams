@@ -226,8 +226,8 @@ def assemble_2d_cross_skew_adjoint_form_cg(x_nodes, u_dofs, w_dofs):
     w_dofs_x = w_dofs[:, 0]
     w_dofs_y = w_dofs[:, 1]
 
-    form = assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_x, w_dofs_y)  \
-         - assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_y, w_dofs_x)
+    form = + assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_x, w_dofs_y)  \
+           - assemble_trilinear_scalar_form_cg(x_nodes, u_dofs_y, w_dofs_x)
 
     return form
 
@@ -275,8 +275,8 @@ def assemble_2d_cross_skew_adjoint_form_dg(x_nodes, u_dofs, w_dofs):
     w_dofs_x = w_dofs[:, 0]
     w_dofs_y = w_dofs[:, 1]
 
-    form = assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_x, w_dofs_y)  \
-         - assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_y, w_dofs_x)
+    form = + assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_x, w_dofs_y)  \
+           - assemble_trilinear_scalar_form_dg(x_nodes, u_dofs_y, w_dofs_x)
 
     return form
 

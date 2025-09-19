@@ -1,8 +1,9 @@
 import jax
 import jax.numpy as jnp
+from functools import partial
 
-
-def extract_positive_imaginary_eigenvalues(A_mat, B_mat, n_eigs: int=5):
+@partial(jax.jit, static_argnums=[-1])
+def extract_positive_imaginary_eigenvalues(A_mat, B_mat, n_eigs):
     eigenvalues, eigenvectors = jnp.linalg.eig(jnp.linalg.solve(B_mat, A_mat))
     # Process eigenvalues (find positive imaginary parts)
     imag_eigenvalues = jnp.imag(eigenvalues)
@@ -17,8 +18,8 @@ def extract_positive_imaginary_eigenvalues(A_mat, B_mat, n_eigs: int=5):
 
     return omega_vec
 
-
-def extract_real_eigenvalues(A_mat, B_mat, n_eigs: int=5):
+@partial(jax.jit, static_argnums=[-1])
+def extract_real_eigenvalues(A_mat, B_mat, n_eigs):
     eigenvalues, eigenvectors = jnp.linalg.eig(jnp.linalg.solve(B_mat, A_mat))    
     real_eigenvalues = jnp.real(eigenvalues)
     # Get smallest eigenvalues

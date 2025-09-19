@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import jax.numpy as jnp
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
-from data import geometrical_props, material_props
+from src.material_data.steel import geometrical_props, material_props
 
 
 n_elements = 50  # Number of finite elements
@@ -17,9 +17,9 @@ classical_beam = ClassicalPlanarBeam(n_elements, geometrical_props, material_pro
 M_matrix, K_matrix = classical_beam.assemble_matrices()
 
 n_eigs = 20  # Number of eigenvalues to plot
-omega_vec_intrinsic = extract_positive_imaginary_eigenvalues(J_linear_matrix, H_matrix, n_eigs=n_eigs)
+omega_vec_intrinsic = extract_positive_imaginary_eigenvalues(J_linear_matrix, H_matrix, n_eigs)
 
-omega_vec_squared_classical = extract_real_eigenvalues(K_matrix, M_matrix, n_eigs=n_eigs)
+omega_vec_squared_classical = extract_real_eigenvalues(K_matrix, M_matrix, n_eigs)
 omega_vec_classical = jnp.sqrt(jnp.abs(omega_vec_squared_classical))
 # # Display
 # for i  in range(n_eigs):

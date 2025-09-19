@@ -5,12 +5,17 @@ import jax
 from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d, rotation_matrix_2d_batch
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 import numpy as np  
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 import os
+from jax import config; config.update("jax_enable_x64", True)
+
+
 # Setup output directory
 path_file = os.path.dirname(os.path.abspath(__file__))
 folder_results = path_file + "/results/"
@@ -78,6 +83,7 @@ state_vector_0 = jnp.concatenate([angle_0, coenergy_vector_0])
 dt = 0.1
 T_end = 15
 n_steps = int(T_end/dt)
+time_vec = dt * jnp.arange(n_steps + 1)
 
 # Run simulation
 E_matrix = jax.scipy.linalg.block_diag(jnp.eye(free_beam.n_ang_vel), H_matrix)
@@ -90,9 +96,9 @@ energy_vec, kinetic_energy_vec, deformation_energy_vec = free_beam.compute_energ
 
 # Plot of energy trend
 plt.figure()
-plt.plot(dt* jnp.arange(n_steps+1), energy_vec, 'm', label='H')
-plt.plot(dt* jnp.arange(n_steps+1), kinetic_energy_vec, 'g', label='T')
-plt.plot(dt* jnp.arange(n_steps+1), deformation_energy_vec, 'b', label='V')
+plt.plot(time_vec, energy_vec, 'm', label='H')
+plt.plot(time_vec, kinetic_energy_vec, 'g', label='T')
+plt.plot(time_vec, deformation_energy_vec, 'b', label='V')
 plt.ylim(0, 400)
 plt.xlabel('Time (s)')
 plt.ylabel('Energy (J)')
@@ -104,7 +110,7 @@ plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 
 # Plot of energy difference
 plt.figure()
-plt.plot(dt* jnp.arange(n_steps), jnp.abs(jnp.diff(energy_vec)), 'm')
+plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'm')
 plt.yscale('log')
 plt.ylim(1e-14, 1e2)
 plt.xlabel('Time (s)')
@@ -117,51 +123,26 @@ plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
 lin_velocity_sol = coenergy_sol[:free_beam.n_lin_vel, :]
 idx_moment = free_beam.n_lin_vel + free_beam.n_ang_vel + free_beam.n_force
 bending_moment_sol = coenergy_sol[idx_moment:, :]
-# Integrate position vector dynamics using the trapezoidal rule
-reshaped_velocity_sol = lin_velocity_sol.reshape(2, free_beam.n_nodes, -1)
 
-position_sol = jnp.zeros_like(reshaped_velocity_sol)
-
-x_local = jnp.linspace(0, free_beam.L, free_beam.n_nodes)
 
 point_A = jnp.array([0, 8])
 x_A, y_A = point_A
-position_sol = position_sol.at[0, :, 0].set(x_A + x_local * jnp.cos(theta_sol[:, 0]))
-position_sol = position_sol.at[1, :, 0].set(y_A + x_local * jnp.sin(theta_sol[:, 0]))
 
-def integration_position(position_prev, ii):
+initial_position = jnp.stack([x_A + free_beam.x_nodes * jnp.cos(theta_sol[:, 0]),
+                                    y_A + free_beam.x_nodes * jnp.sin(theta_sol[:, 0])], axis=1)
 
-    theta_mid = (theta_sol[:, ii] + theta_sol[:, ii+1]) / 2        # shape (N,)
-    velocity_mid = (reshaped_velocity_sol[:, :, ii] + reshaped_velocity_sol[:, :, ii+1]) / 2  # shape (2, N)
-
-    # Compute rotation matrices for all nodes: shape (N, 2, 2)
-    R_batch = rotation_matrix_2d_batch(theta_mid)
-
-    # Apply rotation to each velocity vector
-    delta = jnp.einsum('nij,jn->in', R_batch, velocity_mid)  # result: (2, N)
-
-    position_next = position_prev + dt * delta
-    return position_next, position_next
-
-# Scan over time steps
-# Initialize
-position_sol_init = position_sol[:, :, 0]  # shape (2, N)
-
-_, positions = jax.lax.scan(integration_position, position_sol_init, jnp.arange(n_steps))
-
-# Concatenate initial position to match original shape (2, N, n_steps+1)
-position_sol = jnp.concatenate([position_sol_init[None, :, :], positions], axis=0).transpose(1, 2, 0)
+position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
 
 
 # Maximum time to plot
 T_max = 7.5
 
 # Determine which indices correspond to t <= T_max
-time_indices = [j for j in range(position_sol.shape[2]) if j*dt <= T_max and j % 5 == 0]
+time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
 
-norm = Normalize(vmin=-110, vmax=110)
+norm = Normalize(vmin=jnp.min(bending_moment_sol), vmax=jnp.max(bending_moment_sol))
 
-plt.figure(figsize=(8,6))
+fig, ax = plt.subplots()
 for j in time_indices:
     x_nodes = position_sol[0, :, j]
     y_nodes = position_sol[1, :, j]
@@ -176,14 +157,21 @@ for j in time_indices:
     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
     plt.gca().add_collection(lc)
 
-plt.xlabel('x')
-plt.ylabel('y')
-plt.xlim(-1, 19)
-plt.ylim(-1, 9)
-plt.title('Beam configurations over time')
-plt.grid(True)
-plt.colorbar(lc, label='$M$')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+ax.grid(True)
 
-plt.tight_layout()
-plt.savefig(folder_results + f"Configurations.pdf", format="pdf")
+# Create a colorbar axis that matches the y-axis height
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+cbar = fig.colorbar(lc, cax=cax)
+cbar.set_label('$M$')
+
+ax.set_xlim(-1, 18)
+ax.set_ylim(-1, 9)
+ax.set_aspect("equal", adjustable="box")
+
+fig.tight_layout()
+fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 plt.show()
