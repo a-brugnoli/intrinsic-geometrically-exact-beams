@@ -17,7 +17,7 @@ import os
 from jax import config; config.update("jax_enable_x64", True)
 
 
-dt = 0.2
+dt = 0.02
 T_end = 1
 n_steps = int(T_end/dt)
 time_vec = dt * jnp.arange(n_steps + 1)
