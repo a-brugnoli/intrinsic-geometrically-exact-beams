@@ -36,22 +36,17 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
         self.n_ang_vel = self.n_nodes
         self.n_vel = self.n_lin_vel + self.n_ang_vel
 
-        self.n_force_x = self.n_elem
         self.n_force = 2 * self.n_elem
         self.n_moment = self.n_elem   
 
         self.n_coenergy = self.n_lin_vel + self.n_ang_vel + self.n_force + self.n_moment
-
-        # self.H_matrix = self.assemble_energy_matrix()
-        self.J_linear_matrix = self.assemble_linear_interconnection_matrix()
-        # self.E_matrix = self.assemble_E_matrix()
-
+        self.n_state = self.n_ang_vel + self.n_coenergy
 
 
     @partial(jax.jit, static_argnums=0)
     def assemble_energy_matrix(self) -> jnp.ndarray:
         """
-        Assemble the energy and interconnection matrix for the beam
+        Assemble the energy matrix for the beam
         
         Returns:
         --------
@@ -76,9 +71,11 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
 
         return H_matrix
 
+
+    @partial(jax.jit, static_argnums=0)
     def assemble_linear_interconnection_matrix(self) -> jnp.ndarray:
         """
-        Assemble the energy and interconnection matrix for the beam
+        Assemble the linear interconnection matrix for the beam
         
         Returns:
         --------
@@ -98,6 +95,7 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
         J_linear_matrix = skew_block_matrix(D_free)
 
         return J_linear_matrix
+    
     
     @partial(jax.jit, static_argnums=0)
     def assemble_nonlinear_dynamics(self, coenergy_vector) -> jnp.ndarray:
@@ -144,5 +142,4 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
         B = B.at[self.n_lin_vel-1, 4].set(1)   # Shear force at L
         B = B.at[self.n_lin_vel + self.n_ang_vel-1, 5].set(1)   # Bending moment at L
 
-        # return jnp.vstack([jnp.zeros((self.n_ang_vel, 6)), B]) 
         return B

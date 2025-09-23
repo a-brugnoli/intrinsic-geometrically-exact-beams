@@ -5,6 +5,17 @@ from functools import partial
 
 @jax.jit
 def skew_block_matrix(D):
+    """
+    Create a skew-symmetric block matrix from a given matrix D.
+
+    Args:
+        D (jnp.ndarray): Input matrix of shape (m, n).
+
+    Returns:
+        jnp.ndarray: Skew-symmetric block matrix of shape (m+n, m+n).
+        J = [ 0   D ]
+            [ -D^T 0 ]
+    """
     zeros_top_left = jnp.zeros((D.shape[0], D.shape[0]))
     zeros_bottom_right = jnp.zeros((D.shape[1], D.shape[1]))
     top = jnp.concatenate([zeros_top_left, D], axis=1)

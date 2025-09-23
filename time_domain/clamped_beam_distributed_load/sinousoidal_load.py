@@ -61,7 +61,7 @@ def vector_field_clamped(state_vector, t):
     load_vector = load_vector.at[clamped_beam.n_lin_vel_x:clamped_beam.n_lin_vel].set(\
         material_distributed_force_y*clamped_beam.h_mesh)
 
-    vector_field_theta = coenergy_vector[clamped_beam.n_lin_vel:clamped_beam.n_lin_vel + clamped_beam.n_ang_vel]
+    vector_field_theta = coenergy_vector[clamped_beam.n_lin_vel:clamped_beam.n_vel]
 
     vector_field_coenergy = J_linear_matrix_clamped @ coenergy_vector \
         + clamped_beam.assemble_nonlinear_dynamics(coenergy_vector) \
@@ -101,7 +101,7 @@ def vector_field_free(state_vector, t):
     # Forcing along the y direction
     load_vector = load_vector.at[free_beam.n_lin_vel_x:free_beam.n_lin_vel].set(f_vector_y)
 
-    vector_field_theta = coenergy_vector[free_beam.n_lin_vel:free_beam.n_lin_vel + free_beam.n_ang_vel]
+    vector_field_theta = coenergy_vector[free_beam.n_lin_vel:free_beam.n_vel]
 
     vector_field_coenergy = J_linear_matrix_free @ coenergy_vector \
         + free_beam.assemble_nonlinear_dynamics(coenergy_vector) \
@@ -198,7 +198,8 @@ anim = animate_overlay_beam_deformation(
     fps=20, interval=100,
     title="Comparison: Clamped Beam under distributed Load",
     colors=('blue', 'red'),
-        labels=('Clamped', 'Free')
+    labels=('Clamped', 'Free'),
+    save_path=folder_results + f"Clamped_vs_Free.gif"
 )
 
 # Show the animation

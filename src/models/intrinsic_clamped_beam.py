@@ -33,7 +33,6 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
         super().__init__(n_elements, geometrical_props, material_props)
 
         # Dimension of different partitions
-        
         self.n_lin_vel_x = self.n_elem
         self.n_lin_vel = 2 * self.n_elem
         self.n_ang_vel = self.n_elem
@@ -44,17 +43,13 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
         self.n_moment = self.n_nodes  
 
         self.n_coenergy = self.n_lin_vel + self.n_ang_vel + self.n_force + self.n_moment
-
-        # self.n_dofs = self.n_ang_vel + self.n_coenergy
-        # self.H_matrix = self.assemble_energy_matrix()
-        # self.J_linear_matrix = self.assemble_linear_interconnection_matrix()
-        # self.E_matrix = self.assemble_E_matrix()
+        self.n_state = self.n_ang_vel + self.n_coenergy
 
 
     @partial(jax.jit, static_argnums=0)
     def assemble_energy_matrix(self) -> jnp.ndarray:
         """
-        Assemble the energy and interconnection matrix for the beam
+        Assemble the energy matrix for the beam
         
         Returns:
         --------
@@ -79,9 +74,11 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
 
         return H_matrix
 
+
+    @partial(jax.jit, static_argnums=0)
     def assemble_linear_interconnection_matrix(self) -> jnp.ndarray:
         """
-        Assemble the energy and interconnection matrix for the beam
+        Assemble the interconnection matrix for the beam
         
         Returns:
         --------
@@ -148,6 +145,6 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
         B = B.at[self.n_vel + self.n_force-1, 4].set(1)
         B = B.at[-1, 5].set(1)  # L
 
-        #return jnp.vstack([jnp.zeros((self.n_ang_vel, 6)), B]) 
+        # return jnp.vstack([jnp.zeros((self.n_ang_vel, 6)), B]) 
         return B
     
