@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import jax
 from src.fem.basis_functions import phi_ref, dphi_ref
-from src.fem.quadrature import _gauss_quadrature_one_point, _gauss_quadrature_two_point
+from src.fem.quadrature import gauss_quadrature
 
 @jax.jit
 def _local_mass_matrix(h_e, parameter) -> jnp.ndarray:
@@ -12,7 +12,7 @@ def _local_mass_matrix(h_e, parameter) -> jnp.ndarray:
     """
     M = jnp.zeros((2, 2))
     jacobian = h_e/2
-    gauss_points, gauss_weights = _gauss_quadrature_two_point()
+    gauss_points, gauss_weights = gauss_quadrature(2)
     for i in range(2):
         for j in range(2):
             integrand = parameter * phi_ref(i, gauss_points) * phi_ref(j, gauss_points) * jacobian
@@ -48,16 +48,6 @@ def mass_matrix_lagrange(coordinates, parameter=1.0) -> jnp.ndarray:
 
     M_global, _ = jax.lax.scan(body, M_global, jnp.arange(n_elements))
 
-    # for e in range(n_elements):
-    #     x0, x1 = coordinates[e], coordinates[e + 1]
-    #     h_e = x1 - x0
-    #     # To be corrected if parameter is not constant
-    #     M_loc = _local_mass_matrix(h_e, parameter)
-    #     nodes = jnp.array([e, e + 1])
-    #     for i in range(2):
-    #         for j in range(2):
-    #             M_global = M_global.at[nodes[i], nodes[j]].add(M_loc[i, j])
-
     return M_global
 
 
@@ -66,7 +56,7 @@ def _local_inner_product_cg_dg(h_e) -> jnp.ndarray:
     """Compute local vector [∫_K φ_0, ∫_K φ_1]ᵗ for element of length h_e."""
     b = jnp.zeros((2,))
     jacobian = h_e / 2  # Jacobian of affine map
-    gauss_points, gauss_weights = _gauss_quadrature_one_point()
+    gauss_points, gauss_weights = gauss_quadrature(1)
     for i in range(2):
         integrand = phi_ref(i, gauss_points) * jacobian
         b = b.at[i].set(jnp.sum(gauss_weights * integrand) )
@@ -109,15 +99,6 @@ def inner_product_cg_dg(coordinates) -> jnp.ndarray:
 
     M_cg_dg, _ = jax.lax.scan(body, M_cg_dg, jnp.arange(n_elements))
 
-    # for e in range(n_elements):
-    #     x0, x1 = coordinates[e], coordinates[e + 1]
-    #     h_e = x1 - x0
-    #     # To be corrected if parameter is not constant
-    #     M_cg_dg_loc = _local_inner_product_cg_dg(h_e)
-    #     nodes_cg = jnp.array([e, e + 1])
-    #     for i in range(2):
-    #         M_cg_dg = M_cg_dg.at[nodes_cg[i], e].add(M_cg_dg_loc[i])
-
     return M_cg_dg
 
 
@@ -127,7 +108,7 @@ def _local_discrete_gradient(h_e) -> jnp.ndarray:
     b = jnp.zeros((2,))
     jacobian = h_e / 2  # Jacobian of affine map
     dxi_dx = 2.0 / h_e
-    gauss_points, gauss_weights = _gauss_quadrature_one_point()
+    gauss_points, gauss_weights = gauss_quadrature(1)
     for i in range(2):
         integrand = dphi_ref(i, gauss_points) * jacobian * dxi_dx
         b = b.at[i].set(jnp.sum(gauss_weights * integrand))
@@ -159,13 +140,6 @@ def discrete_gradient(node_coords) -> jnp.ndarray:
 
     D, _ = jax.lax.scan(body, D, jnp.arange(n_elements))
 
-    # for e in range(n_elements):
-    #     x0, x1 = node_coords[e], node_coords[e + 1]
-    #     h_e = x1 - x0
-    #     c_loc = _local_discrete_gradient(h_e)
-    #     nodes = jnp.array([e, e + 1])
-    #     for i in range(2):
-    #         D = D.at[e, nodes[i]].add(c_loc[i])
     return D
 
 
@@ -175,7 +149,7 @@ def _local_stiffness_matrix(h_e, stiffness) -> jnp.ndarray:
     K = jnp.zeros((2, 2))
     jacobian = h_e / 2  # Jacobian of affine map
     dxi_dx = 2.0 / h_e  # inverse Jacobian
-    gauss_points, gauss_weights = _gauss_quadrature_two_point()
+    gauss_points, gauss_weights = gauss_quadrature(2)
 
     for i in range(2):
         for j in range(2):
@@ -210,14 +184,6 @@ def stiffness_matrix(coordinates, stiffness=1.0) -> jnp.ndarray:
 
     K_global, _ = jax.lax.scan(body, K_global, jnp.arange(n_elements))
 
-    # for e in range(n_elements):
-    #     x0, x1 = coordinates[e], coordinates[e + 1]
-    #     h_e = x1 - x0
-    #     K_loc = _local_stiffness_matrix(h_e, stiffness)
-    #     nodes = jnp.array([e, e + 1])
-    #     for i in range(2):
-    #         for j in range(2):
-    #             K_global = K_global.at[nodes[i], nodes[j]].add(K_loc[i, j])
     return K_global
 
 

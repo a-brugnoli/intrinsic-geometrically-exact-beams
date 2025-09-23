@@ -27,39 +27,42 @@ class IntrinsicBeam(ABC):
         """
         self.n_elem = n_elements
         self.n_nodes = n_elements + 1
-        self.n_dofs = 3 * self.n_nodes + 3 * self.n_elem
 
         # Geometric properties
-        self.L = geometrical_props['L']
-        self.A = geometrical_props['A']
-        self.I = geometrical_props['I']
-        self.k = geometrical_props['k']
+        L = geometrical_props['L']
+        A = geometrical_props['A']
+        I = geometrical_props['I']
+        k = geometrical_props['k']
         
         # Element length
-        self.h_mesh = self.L / self.n_elem
+        self.h_mesh = L / self.n_elem
         
         # Material properties
-        self.E = material_props['E']
-        self.G = material_props['G']
-        self.rho = material_props['rho']
+        E = material_props['E']
+        G = material_props['G']
+        rho = material_props['rho']
 
         # Physical quantities for the dynamical system
-        self.density_unit_length = self.rho * self.A
-        self.rotational_inertia = self.rho * self.I
+        self.density_unit_length = rho * A
+        self.rotational_inertia = rho * I
 
-        self.axial_compliance = 1 / (self.E * self.A)
-        self.shear_compliance = 1 / (self.k * self.G * self.A)
-        self.bending_compliance = 1 / (self.E * self.I)
+        self.axial_compliance = 1 / (E * A)
+        self.shear_compliance = 1 / (k * G * A)
+        self.bending_compliance = 1 / (E * I)
         
         # Node coordinates
-        self.x_nodes = jnp.linspace(0, self.L, self.n_nodes)
+        self.x_nodes = jnp.linspace(0, L, self.n_nodes)
 
-        # Dimension of different partitions
+        # # Dimension of different partitions
         self.n_lin_vel = None
         self.n_ang_vel = None
+        self.n_vel = None
+
         self.n_force = None
         self.n_moment = None  
-        
+
+        self.J_linear_matrix = None
+
 
     def set_axial_compliance(self, axial_compliance):
         """
@@ -77,6 +80,7 @@ class IntrinsicBeam(ABC):
         self.bending_compliance = bending_compliance       
 
     
+
     @abstractmethod
     def assemble_energy_matrix(self) -> jnp.ndarray:
         pass
@@ -97,14 +101,51 @@ class IntrinsicBeam(ABC):
         pass
 
 
+    # @partial(jax.jit, static_argnums=0)
+    # def assemble_E_matrix(self) -> jnp.ndarray:
+    #     """
+    #     Assemble the E matrix for the implicit time integration scheme
+    #     """
+    #     E_matrix = jax.scipy.linalg.block_diag(jnp.eye(self.n_ang_vel), self.H_matrix)
+    #     return E_matrix
+    
+
+    @partial(jax.jit, static_argnums=0)
+    def assemble_autonomous_vector_field(self, state_vector: jnp.ndarray) -> jnp.ndarray:
+        """
+        Assemble the autonomous part of the vector field
+        f_theta = omega
+        f_coenergy = J(x) * dH(x)
+
+        f(x) = [f_theta; f_coenergy]
+
+        Parameters:
+        -----------
+        state_vector : jnp.ndarray
+            State vector of the dynamical system
+
+        """
+        coenergy_vector = state_vector[self.n_ang_vel:]
+
+        vector_field_theta = coenergy_vector[self.n_lin_vel:self.n_lin_vel + self.n_ang_vel]
+
+        vector_field_coenergy = self.J_linear_matrix  @ coenergy_vector \
+                            + self.assemble_nonlinear_dynamics(coenergy_vector) \
+   
+        return jnp.concatenate([vector_field_theta, vector_field_coenergy])
+    
+
+    @partial(jax.jit, static_argnums=0)
     def split_coenergy_vector(self, coenergy_vector: jnp.ndarray) -> jnp.ndarray:
         """
         Split the state vector into its components
         Vector variables are arranged in a matrix: [v_x, v_y, v_z]
+
+        Warning: this function is not vectorized and takes one vector at a time
         """
         lin_vel = jax.lax.dynamic_slice_in_dim(coenergy_vector, 0, self.n_lin_vel)
         lin_vel = lin_vel.reshape((2, -1)).T
-
+        
         ang_vel = jax.lax.dynamic_slice_in_dim(coenergy_vector, self.n_lin_vel, self.n_ang_vel)
 
         idx_force = self.n_lin_vel + self.n_ang_vel
@@ -117,6 +158,7 @@ class IntrinsicBeam(ABC):
         return lin_vel, ang_vel, force_resultant, moment
 
 
+    @partial(jax.jit, static_argnums=0)
     def compute_costates(self, coenergy_vector: jnp.ndarray) -> jnp.ndarray:
         """
         Compute the energy variables from the co-energy variables
@@ -133,58 +175,18 @@ class IntrinsicBeam(ABC):
 
     @partial(jax.jit, static_argnums=0)
     def compute_energies(self, state_sol: jnp.ndarray):
-        n_dofs_vel = self.n_lin_vel + self.n_ang_vel
-        velocity_sol = state_sol[:n_dofs_vel, :]
-        stress_sol = state_sol[n_dofs_vel:, :]
+        velocity_sol = state_sol[:self.n_vel, :]
+        stress_sol = state_sol[self.n_vel:, :]
 
-        H_total = self.assemble_energy_matrix()
-        H_kinetic = H_total[:n_dofs_vel, :n_dofs_vel]
-        H_stress = H_total[n_dofs_vel:, n_dofs_vel:]
+        H_matrix = self.assemble_energy_matrix()
+        H_kinetic = H_matrix[:self.n_vel, :self.n_vel]
+        H_stress = H_matrix[self.n_vel:, self.n_vel:]
 
         # Compute column-wise quadratic forms
-        energy_vec = 0.5 * jnp.sum(state_sol *  (H_total @ state_sol), axis=0)  
+        energy_vec = 0.5 * jnp.sum(state_sol *  (H_matrix @ state_sol), axis=0)  
         kinetic_energy_vec = 0.5 * jnp.sum(velocity_sol * (H_kinetic @ velocity_sol), axis=0)  
         deformation_energy_vec = 0.5 * jnp.sum(stress_sol * (H_stress @ stress_sol), axis=0)  
 
         return energy_vec, kinetic_energy_vec, deformation_energy_vec
     
-    @partial(jax.jit, static_argnums=0)
-    def compute_positions(self, theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
-                           initial_position: jnp.ndarray, time_sol: jnp.ndarray):
-        
-        dt_vec = time_sol[1:] - time_sol[:-1]
-        n_steps = time_sol.shape[0] - 1
-
-        
-        # Integrate position vector dynamics using the trapezoidal rule
-        reshaped_velocity_sol = lin_velocity_sol.reshape(2, int(self.n_lin_vel / 2), -1)
-
-        position_sol = jnp.zeros_like(reshaped_velocity_sol)
-
-        position_sol = position_sol.at[0, :, 0].set(initial_position[:, 0])
-        position_sol = position_sol.at[1, :, 0].set(initial_position[:, 1])
-
-        def integration_position(position_prev, ii):
-
-            theta_mid = (theta_sol[:, ii] + theta_sol[:, ii+1]) / 2        # shape (N,)
-            velocity_mid = (reshaped_velocity_sol[:, :, ii] + reshaped_velocity_sol[:, :, ii+1]) / 2  # shape (2, N)
-
-            # Compute rotation matrices for all nodes: shape (N, 2, 2)
-            R_batch = rotation_matrix_2d_batch(theta_mid)
-
-            # Apply rotation to each velocity vector
-            delta = jnp.einsum('nij,jn->in', R_batch, velocity_mid)  # result: (2, N)
-
-            position_next = position_prev + dt_vec[ii] * delta
-            return position_next, position_next
-
-        # Scan over time steps
-        # Initialize
-        position_sol_init = position_sol[:, :, 0]  # shape (2, N)
-
-        _, positions = jax.lax.scan(integration_position, position_sol_init, jnp.arange(n_steps))
-
-        # Concatenate initial position to match original shape (2, N, n_steps+1)
-        position_sol = jnp.concatenate([position_sol_init[None, :, :], positions], axis=0).transpose(1, 2, 0)
-
-        return position_sol
+    

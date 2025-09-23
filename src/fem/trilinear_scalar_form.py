@@ -1,7 +1,8 @@
 import jax
 import jax.numpy as jnp
-from src.fem.basis_functions import phi_ref
-from src.fem.quadrature import _gauss_quadrature_two_point, eval_interp_at_gauss_node
+from src.fem.basis_functions import phi_ref, eval_ref_elem_interp_at_nodes
+from src.fem.quadrature import gauss_quadrature
+
 
 @jax.jit
 def _element_trilinear_scalar_form_cg(xL, xR, u_local, w_local):
@@ -20,7 +21,7 @@ def _element_trilinear_scalar_form_cg(xL, xR, u_local, w_local):
     Returns:
         A JAX array representing the element-level contribution to the trilinear form.
     """
-    xi_q, w_q = _gauss_quadrature_two_point()
+    xi_q, w_q = gauss_quadrature(2)
     h = xR - xL
     jac = 0.5 * h
 
@@ -28,8 +29,8 @@ def _element_trilinear_scalar_form_cg(xL, xR, u_local, w_local):
     phi_vals = jnp.stack([phi_ref(0, xi_q), phi_ref(1, xi_q)])
 
     # Shape (2,) i.e. number of gauss points
-    u_vals = eval_interp_at_gauss_node(u_local, xi_q)
-    w_vals = eval_interp_at_gauss_node(w_local, xi_q)
+    u_vals = eval_ref_elem_interp_at_nodes(u_local, xi_q)
+    w_vals = eval_ref_elem_interp_at_nodes(w_local, xi_q)
     integrands = jac * phi_vals * u_vals * w_vals
     return jnp.dot(integrands, w_q)
 
@@ -83,14 +84,14 @@ def assemble_trilinear_scalar_form_cg(x_nodes: jnp.ndarray,
 
 
 def _element_trilinear_scalar_form_dg(xL, xR, u_local, w_local):
-    xi_q, w_q = _gauss_quadrature_two_point()
+    xi_q, w_q = gauss_quadrature(2)
     h = xR - xL
     jac = 0.5 * h
 
     # Shape (2,) i.e. number of gauss points
 
-    u_vals = eval_interp_at_gauss_node(u_local, xi_q)
-    w_vals = eval_interp_at_gauss_node(w_local, xi_q)
+    u_vals = eval_ref_elem_interp_at_nodes(u_local, xi_q)
+    w_vals = eval_ref_elem_interp_at_nodes(w_local, xi_q)
     integrands = jac * u_vals * w_vals
     return jnp.array([jnp.dot(integrands, w_q)])
 

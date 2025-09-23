@@ -16,6 +16,25 @@ def phi_ref(i, xi):
     return jnp.where(i == 0, 0.5 * (1 - xi), 0.5 * (1 + xi))
 
 
+def eval_ref_elem_interp_at_nodes(dofs, xi):
+    """
+    Evaluates the piecewise linear or constant interpolant at nodes for the reference element.
+    
+    Args:
+        dofs: JAX array of degrees of freedom (shape (2,) for P1 or (1,) for P0)
+        xi: JAX array of points
+    Returns:
+        JAX array of evaluations at the two Gauss points
+    """
+    if dofs.ndim == 1 and dofs.shape[0] not in (1, 2):
+        raise ValueError("dofs must be of shape (2,) for P1 or (1,) for P0")
+    return jnp.where(
+        dofs.shape[0] == 2,
+        dofs[0] * 0.5 * (1 - xi) + dofs[1] * 0.5 * (1 + xi),
+        jnp.full_like(xi, dofs[0])
+    )
+
+
 def dphi_ref(i, xi):
     """Derivatives of linear Lagrange basis functions on ref [-1, 1]"""
     return jnp.where(i == 0, -0.5, 0.5)  # constant on ref element

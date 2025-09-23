@@ -33,10 +33,22 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
         super().__init__(n_elements, geometrical_props, material_props)
 
         # Dimension of different partitions
+        
+        self.n_lin_vel_x = self.n_elem
         self.n_lin_vel = 2 * self.n_elem
         self.n_ang_vel = self.n_elem
+        self.n_vel = self.n_lin_vel + self.n_ang_vel
+
+        self.n_force_x = self.n_nodes
         self.n_force = 2 * self.n_nodes
         self.n_moment = self.n_nodes  
+
+        self.n_coenergy = self.n_lin_vel + self.n_ang_vel + self.n_force + self.n_moment
+
+        # self.n_dofs = self.n_ang_vel + self.n_coenergy
+        # self.H_matrix = self.assemble_energy_matrix()
+        # self.J_linear_matrix = self.assemble_linear_interconnection_matrix()
+        # self.E_matrix = self.assemble_E_matrix()
 
 
     @partial(jax.jit, static_argnums=0)
@@ -124,20 +136,18 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
         Assemble the control operator considering the following orderning of the control vector:
         u = [v_x(x=0), v_y(x=0), v_z(x=0), omega_x(x=L), omega_y(x=L), omega_z(x=L)]
         """
-        B = jnp.zeros((self.n_dofs, 6))
-
-        n_dofs_vel = self.n_lin_vel + self.n_ang_vel
+        B = jnp.zeros((self.n_coenergy, 6))
 
         # Input at 0
-        B = B.at[n_dofs_vel, 0].set(-1)
-        B = B.at[n_dofs_vel + self.n_nodes, 1].set(-1)
-        B = B.at[n_dofs_vel + self.n_force, 2].set(-1)
+        B = B.at[self.n_vel, 0].set(-1)
+        B = B.at[self.n_vel + self.n_force_x, 1].set(-1)
+        B = B.at[self.n_vel + self.n_force, 2].set(-1)
 
         # Input at L
-        B = B.at[n_dofs_vel + self.n_nodes-1, 3].set(1)
-        B = B.at[n_dofs_vel + self.n_force-1, 4].set(1)
+        B = B.at[self.n_vel + self.n_force_x-1, 3].set(1)
+        B = B.at[self.n_vel + self.n_force-1, 4].set(1)
         B = B.at[-1, 5].set(1)  # L
 
+        #return jnp.vstack([jnp.zeros((self.n_ang_vel, 6)), B]) 
         return B
-    
     
