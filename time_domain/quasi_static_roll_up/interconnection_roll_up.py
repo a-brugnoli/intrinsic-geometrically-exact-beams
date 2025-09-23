@@ -6,7 +6,6 @@ from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 import numpy as np  
@@ -18,13 +17,22 @@ import os
 from jax import config; config.update("jax_enable_x64", True)
 
 
+
+dt = 0.2
+n_elements = 64  # Number of finite elements
+
+T_end = 1
+n_steps = int(T_end/dt)
+time_vec = dt * jnp.arange(n_steps + 1)
+
+
+
 # Setup output directory
 path_file = os.path.dirname(os.path.abspath(__file__))
 folder_results = path_file + "/results/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
-n_elements = 20  # Number of finite elements
 cantilever_beam = IntrinsicPlanarCantileverBeam(n_elements, geometrical_props, material_props)
 clamped_half = cantilever_beam.clamped_beam
 free_half = cantilever_beam.free_beam
@@ -33,7 +41,7 @@ H_matrix = cantilever_beam.assemble_energy_matrix()
 J_linear_matrix = cantilever_beam.assemble_linear_interconnection_matrix()
 E_matrix = jax.scipy.linalg.block_diag(jnp.eye(cantilever_beam.n_ang_vel), H_matrix)
 
-B_torque_at_L = cantilever_beam.assemble_control_matrix()[:, -1]
+B_torque_at_L = cantilever_beam.assemble_control_matrix()[:, 5]
 
 
 jax.jit
@@ -48,6 +56,9 @@ def vector_field(state_vector, t):
     # theta_vector_clamped = state_vector[:clamped_half.n_ang_vel]
     # theta_vector_free = state_vector[clamped_half.n_ang_vel: cantilever_beam.n_ang_vel]
 
+    # theta_at_L_clamped = theta_vector_clamped[-1]
+    # theta_at_0_free = theta_vector_free[0]
+
     coenergy_vector = state_vector[cantilever_beam.n_ang_vel:]
     coenergy_vector_clamped = coenergy_vector[:clamped_half.n_coenergy]
     coenergy_vector_free = coenergy_vector[clamped_half.n_coenergy:]
@@ -60,7 +71,7 @@ def vector_field(state_vector, t):
 
     vector_field_coenergy = J_linear_matrix @ coenergy_vector \
         + cantilever_beam.assemble_nonlinear_dynamics(coenergy_vector) \
-        + B_torque_at_L * spatial_torque(t)
+        + B_torque_at_L * spatial_torque(t) 
 
 
     return jnp.concatenate([vector_field_theta, vector_field_coenergy])
@@ -69,14 +80,7 @@ def vector_field(state_vector, t):
 
 angle_0 = jnp.zeros(cantilever_beam.n_ang_vel)
 coenergy_vector_0 = jnp.zeros(cantilever_beam.n_coenergy)
-
 state_vector_0 = jnp.concatenate([angle_0, coenergy_vector_0])
-
-dt = 0.2
-T_end = 1
-n_steps = int(T_end/dt)
-time_vec = dt * jnp.arange(n_steps + 1)
-
 
 # Run simulation
 trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field)
@@ -100,25 +104,34 @@ lin_velocity_sol_free = coenergy_sol_free[:free_half.n_lin_vel, :]
 idx_moment_free = free_half.n_lin_vel + free_half.n_ang_vel + free_half.n_force
 moment_sol_free = coenergy_sol_free[idx_moment_free:, :]
 
-lin_velocity_sol = jnp.concatenate([lin_velocity_sol_clamped, lin_velocity_sol_free], axis=0)
-moment_sol = jnp.concatenate([moment_sol_clamped, moment_sol_free], axis=0)
+# lin_velocity_sol = jnp.concatenate([lin_velocity_sol_clamped, lin_velocity_sol_free], axis=0)
+# moment_sol = jnp.concatenate([moment_sol_clamped, moment_sol_free], axis=0)
 
 clamped_half_x_midpoints = 0.5 * (clamped_half.x_nodes[:-1] + clamped_half.x_nodes[1:])
 
-initial_position = jnp.stack([jnp.hstack((clamped_half_x_midpoints, clamped_half.L + free_half.x_nodes)),
-                              jnp.zeros(cantilever_beam.n_ang_vel)], axis=1)
 
-position_sol = compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
+# initial_position = jnp.stack([jnp.hstack((clamped_half_x_midpoints, clamped_half.L + free_half.x_nodes)),
+#                               jnp.zeros(cantilever_beam.n_ang_vel)], axis=1)
+# position_sol = compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
+
+initial_position_clamped = jnp.stack([clamped_half_x_midpoints,
+                                      jnp.zeros(clamped_half.n_ang_vel)], axis=1)
+position_sol_clamped = compute_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
+
+initial_position_free = jnp.stack([free_half.x_nodes + clamped_half.L,
+                                   jnp.zeros(free_half.n_ang_vel)], axis=1)
+position_sol_free = compute_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
 
 
 # Create and display animation
-from src.postprocessing.animate import animate_beam_deformation
+from src.postprocessing.animate import animate_overlay_beam_deformation
 print("Creating animation...")
-anim = animate_beam_deformation(
-    time_vec, position_sol,
+anim = animate_overlay_beam_deformation(
+    time_vec, position_sol_clamped, position_sol_free,
     fps=20, interval=1000,
-    title="Static Roll-Up of a Cantilever Beam",
-    save_path=folder_results + "interconnection_roll_up.gif"
+    title="Comparison: clamped and free formulations roll-up",
+    colors=('blue', 'red'),
+    labels=('Clamped', 'Free'),
 )
 
 # Show the animation

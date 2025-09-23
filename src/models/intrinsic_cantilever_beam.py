@@ -2,6 +2,7 @@ import jax.numpy as jnp
 import jax.scipy.linalg as jla
     
 from src.linear_algebra.la_jax import skew_block_matrix
+from src.rotations.utilities import rotation_matrix_2d
 import jax
 from functools import partial
 from .intrinsic_free_beam import IntrinsicPlanarFreeBeam
@@ -78,7 +79,13 @@ class IntrinsicPlanarCantileverBeam():
 
         J_stacked = jla.block_diag(J_clamped, J_free)
 
-        return J_stacked
+        B_clamped_right = self.clamped_beam.assemble_control_matrix()[:, 3:]
+        B_free_left = self.free_beam.assemble_control_matrix()[:, :3]
+        # The input in the clamped beam is the output of the free beam (the velocity are the same)
+        C_coupling_upper_right = B_clamped_right @ B_free_left.T
+        J_coupling = skew_block_matrix(C_coupling_upper_right)
+
+        return J_stacked + J_coupling
     
 
     @partial(jax.jit, static_argnums=0)
@@ -106,23 +113,6 @@ class IntrinsicPlanarCantileverBeam():
         f_nl = jnp.concatenate([f_nl_left, f_nl_right])
 
         return f_nl
-    
-    
-    @partial(jax.jit, static_argnums=0)
-    def assemble_nonlinear_coupling(self, theta_clamped_right, theta_free_left) -> jnp.ndarray:
-        # Coupling the two beams at the interface
-        B_clamped_right = self.clamped_beam.assemble_control_matrix()[:, 3:]
-        B_free_left = self.free_beam.assemble_control_matrix()[:, :3]
-
-        # The input in the clamped beam is the output of the free beam (the velocity are the same)
-        C_coupling_upper_right = B_clamped_right @ B_free_left.T
-
-        J_coupling = skew_block_matrix(C_coupling_upper_right)
-
-        jax.debug.print("This need to be corrected to account for nonlinearities")
-
-
-        raise NotImplementedError("Nonlinear coupling not implemented yet")
     
     
     @partial(jax.jit, static_argnums=0)

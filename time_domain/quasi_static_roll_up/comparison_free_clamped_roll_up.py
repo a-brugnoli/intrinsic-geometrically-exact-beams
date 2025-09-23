@@ -17,7 +17,9 @@ import os
 from jax import config; config.update("jax_enable_x64", True)
 
 
-dt = 0.02
+dt = 0.2
+n_elements = 8  # Number of finite elements
+
 T_end = 1
 n_steps = int(T_end/dt)
 time_vec = dt * jnp.arange(n_steps + 1)
@@ -33,7 +35,6 @@ folder_results = path_file + "/results/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
-n_elements = 8  # Number of finite elements
 
 clamped_beam = IntrinsicPlanarClampedBeam(n_elements, geometrical_props, material_props)
 H_matrix_clamped = clamped_beam.assemble_energy_matrix()
@@ -153,7 +154,6 @@ anim = animate_overlay_beam_deformation(
     title="Comparison: clamped and free formulations roll-up",
     colors=('blue', 'red'),
     labels=('Clamped', 'Free'),
-    save_path=folder_results + "Comparison_free_clamped_roll_up.gif"
 )
 
 # Show the animation
