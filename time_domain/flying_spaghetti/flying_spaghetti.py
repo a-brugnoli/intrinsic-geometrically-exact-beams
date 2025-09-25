@@ -80,7 +80,6 @@ T_end = 15
 n_steps = int(T_end/dt)
 time_vec = dt * jnp.arange(n_steps + 1)
 
-
 # Run simulation
 trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field)
 

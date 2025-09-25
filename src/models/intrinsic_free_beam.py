@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-import jax.scipy.linalg as jla
 from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
 from src.fem.trilinear_vector_form import assemble_2d_cross_form_cg, assemble_2d_cross_form_dg, \
                                           assemble_2d_cross_skew_adjoint_form_cg
@@ -60,7 +59,7 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
         M_shear_for = self.h_mesh * self.shear_compliance * jnp.eye(self.n_elem)
         M_moment = self.h_mesh * self.bending_compliance * jnp.eye(self.n_elem)
 
-        H_matrix = jla.block_diag(
+        H_matrix = jax.scipy.linalg.block_diag(
             M_lin_vel,       # x component of velocity
             M_lin_vel,       # y component of velocity
             M_ang_vel,       # angular velocity
