@@ -4,7 +4,18 @@ import matplotlib.animation as animation
 import numpy as np
 
 def animate_beam_deformation(time_vector, coordinates, fps=30, interval=50, 
-                           save_path=None, title="Beam Deformation Animation"):
+                           save_path=None, title="Beam Deformation Animation",
+                           lock_at_end=False):
+    """
+    Create an animation of a single beam deformation over time.
+    
+    For dual beam animations, use animate_dual_beam_deformation() instead.
+    
+    Parameters:
+    -----------
+    lock_at_end : bool
+        If True, animation stops at the last frame. If False, animation loops.
+    """
     """
     Create an animation of beam deformation over time.
     
@@ -33,6 +44,7 @@ def animate_beam_deformation(time_vector, coordinates, fps=30, interval=50,
     
     # Extract dimensions
     N_time = len(time_vector)
+    N_space = coordinates.shape[1]
     
     # Convert JAX arrays to numpy for matplotlib compatibility
     time_np = np.array(time_vector)
@@ -89,7 +101,7 @@ def animate_beam_deformation(time_vector, coordinates, fps=30, interval=50,
     # Create animation
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                                  frames=N_time, interval=interval, 
-                                 blit=True, repeat=True)
+                                 blit=True, repeat=not lock_at_end)
     
     # Save animation if path provided
     if save_path:
@@ -110,7 +122,7 @@ def animate_dual_beam_deformation(time_vector, coordinates1, coordinates2,
                                  fps=30, interval=50, save_path=None,
                                  titles=("Beam 1", "Beam 2"), 
                                  main_title="Dual Beam Deformation Animation",
-                                 colors=('blue', 'red')):
+                                 colors=('blue', 'red'), lock_at_end=False):
     """
     Create an animation showing two beam deformations simultaneously.
     
@@ -134,6 +146,8 @@ def animate_dual_beam_deformation(time_vector, coordinates1, coordinates2,
         Main title for the entire figure
     colors : tuple
         Colors for each beam ('color1', 'color2')
+    lock_at_end : bool
+        If True, animation stops at the last frame. If False, animation loops.
     
     Returns:
     --------
@@ -219,7 +233,7 @@ def animate_dual_beam_deformation(time_vector, coordinates1, coordinates2,
     # Create animation
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                                  frames=N_time, interval=interval,
-                                 blit=True, repeat=True)
+                                 blit=True, repeat=not lock_at_end)
     
     # Save animation if path provided
     if save_path:
@@ -240,7 +254,39 @@ def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
                                    fps=30, interval=50, save_path=None,
                                    title="Overlaid Beam Deformation Animation",
                                    colors=('blue', 'red'),
-                                   labels=('Beam 1', 'Beam 2')):
+                                   labels=('Beam 1', 'Beam 2'),
+                                   lock_at_end=False):
+    """
+    Create an animation showing two beam deformations overlaid on the same plot.
+    
+    Parameters:
+    -----------
+    time_vector : jax.numpy.ndarray
+        Time vector of size (N_time,)
+    coordinates1 : jax.numpy.ndarray
+        First beam coordinates of size (2, N_space1, N_time)
+    coordinates2 : jax.numpy.ndarray
+        Second beam coordinates of size (2, N_space2, N_time)
+    fps : int
+        Frames per second for the animation
+    interval : int
+        Delay between frames in milliseconds
+    save_path : str, optional
+        Path to save the animation
+    title : str
+        Title for the animation
+    colors : tuple
+        Colors for each beam ('color1', 'color2')
+    labels : tuple
+        Labels for legend ('label1', 'label2')
+    lock_at_end : bool
+        If True, animation stops at the last frame. If False, animation loops.
+    
+    Returns:
+    --------
+    matplotlib.animation.FuncAnimation
+        Animation object
+    """
     """
     Create an animation showing two beam deformations overlaid on the same plot.
     
@@ -340,7 +386,7 @@ def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
     # Create animation
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                                  frames=N_time, interval=interval,
-                                 blit=True, repeat=True)
+                                 blit=True, repeat=not lock_at_end)
     
     # Save animation if path provided
     if save_path:
@@ -397,7 +443,36 @@ def create_dual_example_beam_data():
         coordinates2 = coordinates2.at[1, :, i].set(y_deform2 + 2)  # Offset vertically
     
     return time_vector, coordinates1, coordinates2
-
+    """Create example beam deformation data for testing."""
+    
+    # Time parameters
+    N_time = 100
+    T_final = 2.0
+    time_vector = jnp.linspace(0, T_final, N_time)
+    
+    # Spatial parameters
+    N_space = 50
+    L = 10.0  # beam length
+    x_beam = jnp.linspace(0, L, N_space)
+    
+    # Create a simple beam deformation (e.g., vibrating cantilever beam)
+    omega = 2 * jnp.pi * 2  # frequency
+    amplitude = 0.5
+    
+    # Initialize coordinates array
+    coordinates = jnp.zeros((2, N_space, N_time))
+    
+    # Fill x-coordinates (constant along beam length)
+    coordinates = coordinates.at[0, :, :].set(x_beam[:, None])
+    
+    # Fill y-coordinates (time-varying deformation)
+    for i in range(N_time):
+        t = time_vector[i]
+        # Simple sinusoidal deformation that varies along the beam
+        y_deform = amplitude * (x_beam/L)**2 * jnp.sin(omega * t)
+        coordinates = coordinates.at[1, :, i].set(y_deform)
+    
+    return time_vector, coordinates
 
 # Example usage
 if __name__ == "__main__":
@@ -405,25 +480,27 @@ if __name__ == "__main__":
     print("Creating dual beam deformation data...")
     time_vec, coords1, coords2 = create_dual_example_beam_data()
     
-    # Option 1: Side-by-side comparison
-    print("Creating side-by-side animation...")
+    # Option 1: Side-by-side comparison (loops continuously)
+    print("Creating side-by-side animation (looping)...")
     anim_dual = animate_dual_beam_deformation(
         time_vec, coords1, coords2,
         fps=20, interval=100,
         titles=("Cantilever Beam", "Simply Supported Beam"),
-        main_title="Beam Comparison: Side by Side",
-        colors=('blue', 'red')
+        main_title="Beam Comparison: Side by Side (Looping)",
+        colors=('blue', 'red'),
+        lock_at_end=False
     )
     plt.show()
     
-    # Option 2: Overlaid on same plot
-    print("Creating overlay animation...")
+    # Option 2: Overlaid on same plot (stops at end)
+    print("Creating overlay animation (stops at end)...")
     anim_overlay = animate_overlay_beam_deformation(
         time_vec, coords1, coords2,
         fps=20, interval=100,
-        title="Beam Comparison: Overlaid",
+        title="Beam Comparison: Overlaid (Stops at End)",
         colors=('blue', 'red'),
-        labels=('Cantilever', 'Simply Supported')
+        labels=('Cantilever', 'Simply Supported'),
+        lock_at_end=True  # This one will stop at the last frame
     )
     plt.show()
     

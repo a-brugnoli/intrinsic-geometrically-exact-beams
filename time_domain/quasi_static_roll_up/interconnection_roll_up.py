@@ -19,7 +19,7 @@ from jax import config; config.update("jax_enable_x64", True)
 
 
 dt = 0.2
-n_elements = 64  # Number of finite elements
+n_elements = 16  # Number of finite elements
 
 T_end = 1
 n_steps = int(T_end/dt)
@@ -128,10 +128,12 @@ from src.postprocessing.animate import animate_overlay_beam_deformation
 print("Creating animation...")
 anim = animate_overlay_beam_deformation(
     time_vec, position_sol_clamped, position_sol_free,
-    fps=20, interval=1000,
+    fps=20, interval=100,
     title="Comparison: clamped and free formulations roll-up",
     colors=('blue', 'red'),
     labels=('Clamped', 'Free'),
+    lock_at_end=True,
+    save_path=folder_results + "interconnection_roll_up.gif"
 )
 
 # Show the animation
