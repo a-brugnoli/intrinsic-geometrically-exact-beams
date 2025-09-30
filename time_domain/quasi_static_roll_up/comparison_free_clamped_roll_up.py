@@ -150,7 +150,7 @@ from src.postprocessing.animate import animate_overlay_beam_deformation
 print("Creating animation...")
 anim = animate_overlay_beam_deformation(
     time_vec, position_sol_clamped, position_sol_free,
-    fps=20, interval=1000,
+    fps=5, interval=100,
     title="Comparison: clamped and free formulations roll-up",
     colors=('blue', 'red'),
     labels=('Clamped', 'Free'),
