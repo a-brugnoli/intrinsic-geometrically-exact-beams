@@ -29,9 +29,9 @@ def compute_positions(theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray,
         R_batch = rotation_matrix_2d_batch(theta_mid)
 
         # Apply rotation to each velocity vector
-        delta = jnp.einsum('nij,jn->in', R_batch, velocity_mid)  # result: (2, N)
+        spatial_velocity_midpoint = jnp.einsum('nij,jn->in', R_batch, velocity_mid)  # result: (2, N)
 
-        position_next = position_prev + dt_vec[ii] * delta
+        position_next = position_prev + dt_vec[ii] * spatial_velocity_midpoint
         return position_next, position_next
 
     # Scan over time steps
