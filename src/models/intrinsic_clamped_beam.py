@@ -130,20 +130,20 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
     @partial(jax.jit, static_argnums=0)
     def assemble_control_matrix(self):
         """
-        Assemble the control operator considering the following orderning of the control vector:
-        u = [v_x(x=0), v_y(x=0), v_z(x=0), omega_x(x=L), omega_y(x=L), omega_z(x=L)]
+        Assemble the control operator considering the following ordering:
+        u = [v_x(x=0), v_y(x=0), omega_z(x=0), v_x(x=L), v_y(x=L), omega_z(x=L)]
         """
         B = jnp.zeros((self.n_coenergy, 6))
 
         # Input at 0
-        B = B.at[self.n_vel, 0].set(-1)
-        B = B.at[self.n_vel + self.n_force_x, 1].set(-1)
-        B = B.at[self.n_vel + self.n_force, 2].set(-1)
+        B = B.at[self.n_vel, 0].set(-1)                   # Linear velocity x at 0
+        B = B.at[self.n_vel + self.n_force_x, 1].set(-1)  # Linear velocity y at 0
+        B = B.at[self.n_vel + self.n_force, 2].set(-1)    # Angular velocity z at 0
 
         # Input at L
-        B = B.at[self.n_vel + self.n_force_x-1, 3].set(1)
-        B = B.at[self.n_vel + self.n_force-1, 4].set(1)
-        B = B.at[-1, 5].set(1)  # L
+        B = B.at[self.n_vel + self.n_force_x-1, 3].set(1) # Linear velocity x at L
+        B = B.at[self.n_vel + self.n_force-1, 4].set(1)   # Linear velocity y at L
+        B = B.at[-1, 5].set(1)                            # Angular velocity z at L
 
         # return jnp.vstack([jnp.zeros((self.n_ang_vel, 6)), B]) 
         return B

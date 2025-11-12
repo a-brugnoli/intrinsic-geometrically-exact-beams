@@ -126,7 +126,7 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
     @partial(jax.jit, static_argnums=0)
     def assemble_control_matrix(self):
         """
-        Assemble the control operator considering the following orderning of the control vector:
+        Assemble the control operator considering the following ordering:
         u = [-N_x(x=0), -N_y(x=0), -M_z(x=0), N_x(x=L), N_y(x=L), M_z(x=L)]
         """
         B = jnp.zeros((self.n_coenergy, 6))

@@ -8,7 +8,7 @@ from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d_batch
 from src.fem.forcing import assemble_state_dependent_forcing_vector_cg
 import matplotlib.pyplot as plt
-from src.postprocessing.postprocess_variables import compute_positions
+from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 import os
@@ -182,13 +182,13 @@ lin_velocity_sol_clamped = coenergy_sol_clamped[:clamped_beam.n_lin_vel, :]
 midpoints = 0.5 * (clamped_beam.x_nodes[:-1] + clamped_beam.x_nodes[1:])
 initial_position_clamped = jnp.stack([midpoints,
                               jnp.zeros_like(midpoints)], axis=1)
-position_sol_clamped = compute_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
+position_sol_clamped = compute_beam_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
 
 lin_velocity_sol_free = coenergy_sol_free[:free_beam.n_lin_vel, :]
 initial_position_free = jnp.stack([free_beam.x_nodes,
                                 jnp.zeros_like(free_beam.x_nodes)], axis=1)
 
-position_sol_free = compute_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
+position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
 
 # Create and display animation
 from src.postprocessing.animate import animate_overlay_beam_deformation
