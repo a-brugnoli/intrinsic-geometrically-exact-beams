@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 
-from src.postprocessing.postprocess_variables import compute_positions
+from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 import os
@@ -80,7 +80,7 @@ lin_velocity_sol_clamped = coenergy_sol_clamped[:clamped_beam.n_lin_vel, :]
 midpoints_clamped = 0.5 * (clamped_beam.x_nodes[:-1] + clamped_beam.x_nodes[1:])
 initial_position_clamped = jnp.stack([midpoints_clamped,
                               jnp.zeros_like(midpoints_clamped)], axis=1)
-position_sol_clamped = compute_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
+position_sol_clamped = compute_beam_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
 
 idx_moment_clamped = clamped_beam.n_lin_vel + clamped_beam.n_ang_vel + clamped_beam.n_force
 moment_sol_clamped = coenergy_sol_clamped[idx_moment_clamped:, :]
@@ -143,13 +143,13 @@ moment_sol_free = coenergy_sol_free[idx_moment_free:, :]
 initial_position_free = jnp.stack([free_beam.x_nodes,
                                 jnp.zeros_like(free_beam.x_nodes)], axis=1)
 
-position_sol_free = compute_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
+position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
 
 # Create and display animation
 from src.postprocessing.animate import animate_overlay_beam_deformation
 print("Creating animation...")
 anim = animate_overlay_beam_deformation(
-    time_vec, position_sol_clamped, position_sol_free,
+    time_vec, [position_sol_clamped, position_sol_free],
     fps=5, interval=100,
     title="Comparison: clamped and free formulations roll-up",
     colors=('blue', 'red'),

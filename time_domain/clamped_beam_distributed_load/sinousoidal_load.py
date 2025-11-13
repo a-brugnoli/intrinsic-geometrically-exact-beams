@@ -44,22 +44,15 @@ def vector_field_clamped(state_vector, t):
 
     # To convert from spatial to material the transpose of the rotation matrix has to be taken
     rot_matrix_batch = rotation_matrix_2d_batch(theta_vector)
-    # Transpose only the last two dimensions
+    # # Transpose only the last two dimensions
     material_distributed_force = jnp.transpose(rot_matrix_batch, (0, 2, 1)) @ spatial_force(t)  # N_theta x 2
-
-    material_distributed_force_x = material_distributed_force[:, 0]
-    material_distributed_force_y = material_distributed_force[:, 1]
+    material_distributed_force = material_distributed_force.T.reshape((-1, ))
 
     # Force vector of the size of the system
     load_vector = jnp.zeros((clamped_beam.n_coenergy, ))
 
-    # Forcing along the x direction
-    load_vector = load_vector.at[:clamped_beam.n_lin_vel_x].set(\
-        material_distributed_force_x*clamped_beam.h_mesh)
-    
-    # Forcing along the y direction
-    load_vector = load_vector.at[clamped_beam.n_lin_vel_x:clamped_beam.n_lin_vel].set(\
-        material_distributed_force_y*clamped_beam.h_mesh)
+    load_vector = load_vector.at[:clamped_beam.n_lin_vel].set(\
+        material_distributed_force * clamped_beam.h_mesh)
 
     vector_field_theta = coenergy_vector[clamped_beam.n_lin_vel:clamped_beam.n_vel]
 
@@ -194,7 +187,7 @@ position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free
 from src.postprocessing.animate import animate_overlay_beam_deformation
 print("Creating animation...")
 anim = animate_overlay_beam_deformation(
-    time_vec, position_sol_clamped, position_sol_free,
+    time_vec, [position_sol_clamped, position_sol_free],
     fps=20, interval=100,
     title="Comparison: Clamped Beam under distributed Load",
     colors=('blue', 'red'),

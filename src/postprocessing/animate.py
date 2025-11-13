@@ -117,156 +117,21 @@ def animate_beam_deformation(time_vector, coordinates, fps=30, interval=50,
     plt.tight_layout()
     return anim
 
-# Example usage and test function
-def animate_dual_beam_deformation(time_vector, coordinates1, coordinates2, 
-                                 fps=30, interval=50, save_path=None,
-                                 titles=("Beam 1", "Beam 2"), 
-                                 main_title="Dual Beam Deformation Animation",
-                                 colors=('blue', 'red'), lock_at_end=False):
-    """
-    Create an animation showing two beam deformations simultaneously.
-    
-    Parameters:
-    -----------
-    time_vector : jax.numpy.ndarray
-        Time vector of size (N_time,)
-    coordinates1 : jax.numpy.ndarray
-        First beam coordinates of size (2, N_space1, N_time)
-    coordinates2 : jax.numpy.ndarray
-        Second beam coordinates of size (2, N_space2, N_time)
-    fps : int
-        Frames per second for the animation
-    interval : int
-        Delay between frames in milliseconds
-    save_path : str, optional
-        Path to save the animation
-    titles : tuple
-        Titles for each beam subplot
-    main_title : str
-        Main title for the entire figure
-    colors : tuple
-        Colors for each beam ('color1', 'color2')
-    lock_at_end : bool
-        If True, animation stops at the last frame. If False, animation loops.
-    
-    Returns:
-    --------
-    matplotlib.animation.FuncAnimation
-        Animation object
-    """
-    
-    # Extract dimensions
-    N_time = len(time_vector)
-    
-    # Convert JAX arrays to numpy
-    time_np = np.array(time_vector)
-    coords1_np = np.array(coordinates1)
-    coords2_np = np.array(coordinates2)
-    
-    # Set up the figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
-    fig.suptitle(main_title, fontsize=14, fontweight='bold')
-    
-    # Setup for beam 1
-    x1_min, x1_max = coords1_np[0].min(), coords1_np[0].max()
-    y1_min, y1_max = coords1_np[1].min(), coords1_np[1].max()
-    x1_range = x1_max - x1_min
-    y1_range = y1_max - y1_min
-    padding = 0.1
-    
-    ax1.set_xlim(x1_min - padding * x1_range, x1_max + padding * x1_range)
-    ax1.set_ylim(y1_min - padding * y1_range, y1_max + padding * y1_range)
-    
-    # Setup for beam 2
-    x2_min, x2_max = coords2_np[0].min(), coords2_np[0].max()
-    y2_min, y2_max = coords2_np[1].min(), coords2_np[1].max()
-    x2_range = x2_max - x2_min
-    y2_range = y2_max - y2_min
-    
-    ax2.set_xlim(x2_min - padding * x2_range, x2_max + padding * x2_range)
-    ax2.set_ylim(y2_min - padding * y2_range, y2_max + padding * y2_range)
-    
-    # Initialize line plots
-    line1, = ax1.plot([], [], color=colors[0], linewidth=2, marker='o', markersize=3)
-    line2, = ax2.plot([], [], color=colors[1], linewidth=2, marker='o', markersize=3)
-    
-    # Time displays
-    time_text1 = ax1.text(0.02, 0.95, '', transform=ax1.transAxes,
-                         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
-    time_text2 = ax2.text(0.02, 0.95, '', transform=ax2.transAxes,
-                         bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
-    
-    # Configure axes
-    for ax, title in zip([ax1, ax2], titles):
-        ax.set_xlabel('X Position')
-        ax.set_ylabel('Y Position')
-        ax.set_title(title)
-        ax.grid(True, alpha=0.3)
-        ax.set_aspect('auto')
-    
-    def animate(frame):
-        """Animation function for dual beams."""
-        current_time = time_np[frame]
-        
-        # Update beam 1
-        x1_coords = coords1_np[0, :, frame]
-        y1_coords = coords1_np[1, :, frame]
-        line1.set_data(x1_coords, y1_coords)
-        time_text1.set_text(f'Time: {current_time:.3f}')
-        
-        # Update beam 2
-        x2_coords = coords2_np[0, :, frame]
-        y2_coords = coords2_np[1, :, frame]
-        line2.set_data(x2_coords, y2_coords)
-        time_text2.set_text(f'Time: {current_time:.3f}')
-        
-        return line1, line2, time_text1, time_text2
-    
-    def init():
-        """Initialize animation."""
-        line1.set_data([], [])
-        line2.set_data([], [])
-        time_text1.set_text('')
-        time_text2.set_text('')
-        return line1, line2, time_text1, time_text2
-    
-    # Create animation
-    anim = animation.FuncAnimation(fig, animate, init_func=init,
-                                 frames=N_time, interval=interval,
-                                 blit=True, repeat=not lock_at_end)
-    
-    # Save animation if path provided
-    if save_path:
-        if save_path.endswith('.gif'):
-            anim.save(save_path, writer='pillow', fps=fps)
-            print(f"Dual animation saved as GIF: {save_path}")
-        elif save_path.endswith('.mp4'):
-            anim.save(save_path, writer='ffmpeg', fps=fps)
-            print(f"Dual animation saved as MP4: {save_path}")
-        else:
-            print("Unsupported format. Use .gif or .mp4")
-    
-    plt.tight_layout()
-    return anim
 
-
-def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
+def animate_overlay_beam_deformation(time_vector, beam_coordinates,
                                    fps=30, interval=50, save_path=None,
                                    title="Overlaid Beam Deformation Animation",
-                                   colors=('blue', 'red'),
-                                   labels=('Beam 1', 'Beam 2'),
-                                   lock_at_end=False):
+                                   colors=None, labels=None,
+                                   markers=None, lock_at_end=False):
     """
-    Create an animation showing two beam deformations overlaid on the same plot.
+    Create an animation showing multiple beam deformations overlaid on the same plot.
     
     Parameters:
     -----------
     time_vector : jax.numpy.ndarray
         Time vector of size (N_time,)
-    coordinates1 : jax.numpy.ndarray
-        First beam coordinates of size (2, N_space1, N_time)
-    coordinates2 : jax.numpy.ndarray
-        Second beam coordinates of size (2, N_space2, N_time)
+    beam_coordinates : list of jax.numpy.ndarray
+        List of beam coordinates, each of size (2, N_space_i, N_time)
     fps : int
         Frames per second for the animation
     interval : int
@@ -275,10 +140,12 @@ def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
         Path to save the animation
     title : str
         Title for the animation
-    colors : tuple
-        Colors for each beam ('color1', 'color2')
-    labels : tuple
-        Labels for legend ('label1', 'label2')
+    colors : list of str, optional
+        Colors for each beam. If None, uses default color cycle
+    labels : list of str, optional
+        Labels for legend. If None, uses 'Beam 1', 'Beam 2', etc.
+    markers : list of str, optional
+        Markers for each beam. If None, cycles through default markers
     lock_at_end : bool
         If True, animation stops at the last frame. If False, animation loops.
     
@@ -287,52 +154,41 @@ def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
     matplotlib.animation.FuncAnimation
         Animation object
     """
-    """
-    Create an animation showing two beam deformations overlaid on the same plot.
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.animation as animation
     
-    Parameters:
-    -----------
-    time_vector : jax.numpy.ndarray
-        Time vector of size (N_time,)
-    coordinates1 : jax.numpy.ndarray
-        First beam coordinates of size (2, N_space1, N_time)
-    coordinates2 : jax.numpy.ndarray
-        Second beam coordinates of size (2, N_space2, N_time)
-    fps : int
-        Frames per second for the animation
-    interval : int
-        Delay between frames in milliseconds
-    save_path : str, optional
-        Path to save the animation
-    title : str
-        Title for the animation
-    colors : tuple
-        Colors for each beam ('color1', 'color2')
-    labels : tuple
-        Labels for legend ('label1', 'label2')
+    # Determine number of beams
+    n_beams = len(beam_coordinates)
     
-    Returns:
-    --------
-    matplotlib.animation.FuncAnimation
-        Animation object
-    """
+    # Set default values if not provided
+    if colors is None:
+        default_colors = ['blue', 'red', 'green', 'orange', 'purple', 
+                         'brown', 'pink', 'gray', 'olive', 'cyan']
+        colors = [default_colors[i % len(default_colors)] for i in range(n_beams)]
+    
+    if labels is None:
+        labels = [f'Beam {i+1}' for i in range(n_beams)]
+    
+    if markers is None:
+        default_markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p', '*', 'h']
+        markers = [default_markers[i % len(default_markers)] for i in range(n_beams)]
     
     # Extract dimensions
     N_time = len(time_vector)
     
     # Convert JAX arrays to numpy
     time_np = np.array(time_vector)
-    coords1_np = np.array(coordinates1)
-    coords2_np = np.array(coordinates2)
+    coords_np = [np.array(coords) for coords in beam_coordinates]
     
     # Set up the figure
     fig, ax = plt.subplots(figsize=(12, 8))
     
-    # Calculate combined plot limits
-    x_min = min(coords1_np[0].min(), coords2_np[0].min())
-    x_max = max(coords1_np[0].max(), coords2_np[0].max())
-    y_min = min(coords1_np[1].min(), coords2_np[1].min())
-    y_max = max(coords1_np[1].max(), coords2_np[1].max())
+    # Calculate combined plot limits across all beams
+    x_min = min(coords[0].min() for coords in coords_np)
+    x_max = max(coords[0].max() for coords in coords_np)
+    y_min = min(coords[1].min() for coords in coords_np)
+    y_max = max(coords[1].max() for coords in coords_np)
     
     x_range = x_max - x_min
     y_range = y_max - y_min
@@ -341,11 +197,12 @@ def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
     ax.set_xlim(x_min - padding * x_range, x_max + padding * x_range)
     ax.set_ylim(y_min - padding * y_range, y_max + padding * y_range)
     
-    # Initialize line plots
-    line1, = ax.plot([], [], color=colors[0], linewidth=2, marker='o', 
-                     markersize=3, label=labels[0])
-    line2, = ax.plot([], [], color=colors[1], linewidth=2, marker='s', 
-                     markersize=3, label=labels[1])
+    # Initialize line plots for all beams
+    lines = []
+    for i in range(n_beams):
+        line, = ax.plot([], [], color=colors[i], linewidth=2, 
+                       marker=markers[i], markersize=3, label=labels[i])
+        lines.append(line)
     
     # Time display
     time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes,
@@ -363,25 +220,22 @@ def animate_overlay_beam_deformation(time_vector, coordinates1, coordinates2,
         """Animation function for overlaid beams."""
         current_time = time_np[frame]
         
-        # Update both beams
-        x1_coords = coords1_np[0, :, frame]
-        y1_coords = coords1_np[1, :, frame]
-        line1.set_data(x1_coords, y1_coords)
-        
-        x2_coords = coords2_np[0, :, frame]
-        y2_coords = coords2_np[1, :, frame]
-        line2.set_data(x2_coords, y2_coords)
+        # Update all beams
+        for i, (line, coords) in enumerate(zip(lines, coords_np)):
+            x_coords = coords[0, :, frame]
+            y_coords = coords[1, :, frame]
+            line.set_data(x_coords, y_coords)
         
         time_text.set_text(f'Time: {current_time:.3f}')
         
-        return line1, line2, time_text
+        return lines + [time_text]
     
     def init():
         """Initialize animation."""
-        line1.set_data([], [])
-        line2.set_data([], [])
+        for line in lines:
+            line.set_data([], [])
         time_text.set_text('')
-        return line1, line2, time_text
+        return lines + [time_text]
     
     # Create animation
     anim = animation.FuncAnimation(fig, animate, init_func=init,
@@ -443,36 +297,7 @@ def create_dual_example_beam_data():
         coordinates2 = coordinates2.at[1, :, i].set(y_deform2 + 2)  # Offset vertically
     
     return time_vector, coordinates1, coordinates2
-    """Create example beam deformation data for testing."""
     
-    # Time parameters
-    N_time = 100
-    T_final = 2.0
-    time_vector = jnp.linspace(0, T_final, N_time)
-    
-    # Spatial parameters
-    N_space = 50
-    L = 10.0  # beam length
-    x_beam = jnp.linspace(0, L, N_space)
-    
-    # Create a simple beam deformation (e.g., vibrating cantilever beam)
-    omega = 2 * jnp.pi * 2  # frequency
-    amplitude = 0.5
-    
-    # Initialize coordinates array
-    coordinates = jnp.zeros((2, N_space, N_time))
-    
-    # Fill x-coordinates (constant along beam length)
-    coordinates = coordinates.at[0, :, :].set(x_beam[:, None])
-    
-    # Fill y-coordinates (time-varying deformation)
-    for i in range(N_time):
-        t = time_vector[i]
-        # Simple sinusoidal deformation that varies along the beam
-        y_deform = amplitude * (x_beam/L)**2 * jnp.sin(omega * t)
-        coordinates = coordinates.at[1, :, i].set(y_deform)
-    
-    return time_vector, coordinates
 
 # Example usage
 if __name__ == "__main__":
@@ -480,22 +305,8 @@ if __name__ == "__main__":
     print("Creating dual beam deformation data...")
     time_vec, coords1, coords2 = create_dual_example_beam_data()
     
-    # Option 1: Side-by-side comparison (loops continuously)
-    print("Creating side-by-side animation (looping)...")
-    anim_dual = animate_dual_beam_deformation(
-        time_vec, coords1, coords2,
-        fps=20, interval=100,
-        titles=("Cantilever Beam", "Simply Supported Beam"),
-        main_title="Beam Comparison: Side by Side (Looping)",
-        colors=('blue', 'red'),
-        lock_at_end=False
-    )
-    plt.show()
-    
-    # Option 2: Overlaid on same plot (stops at end)
-    print("Creating overlay animation (stops at end)...")
     anim_overlay = animate_overlay_beam_deformation(
-        time_vec, coords1, coords2,
+        time_vec, [coords1, coords2],
         fps=20, interval=100,
         title="Beam Comparison: Overlaid (Stops at End)",
         colors=('blue', 'red'),

@@ -1,3 +1,4 @@
+import time
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
 from data import geometrical_props, material_props, g, m_mass, beam_length
 import jax.numpy as jnp
@@ -8,13 +9,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
+from src.postprocessing.animate import animate_overlay_beam_deformation
 from src.postprocessing.postprocess_variables import compute_beam_positions, implicit_midpoint_integrate
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 
 import os
 from jax import config; config.update("jax_enable_x64", True)
-
 
 # Setup output directory
 path_file = os.path.dirname(os.path.abspath(__file__))
@@ -131,33 +132,32 @@ energy_rate = - m_mass * g * inertial_velocity_end_mass_sol[-1]
 # plt.tight_layout()
 # plt.savefig(folder_results + f"Energy_rate.pdf", format="pdf")
 
-plt.figure()
-plt.plot(time_vec, theta_L_sol + jnp.pi/2)
-plt.xlabel('Time (s)')
-plt.ylabel('$\\theta(L,t)$')
-plt.title('End rotation vs Time')
-plt.grid(True)
-plt.savefig(folder_results + f"Angle.pdf", format="pdf")
-plt.tight_layout()
+# plt.figure()
+# plt.plot(time_vec, theta_L_sol + jnp.pi/2)
+# plt.xlabel('Time (s)')
+# plt.ylabel('$\\theta(L,t)$')
+# plt.title('End rotation vs Time')
+# plt.grid(True)
+# plt.savefig(folder_results + f"Angle.pdf", format="pdf")
+# plt.tight_layout()
 
-plt.figure()
-plt.plot(time_vec, omega_L_sol)
-plt.xlabel('Time (s)')
-plt.ylabel('$\omega(L,t)$')
-plt.title('End angular velocity vs Time')
-plt.grid(True)
-plt.savefig(folder_results + f"Omega.pdf", format="pdf")
-plt.tight_layout()
+# plt.figure()
+# plt.plot(time_vec, omega_L_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel('$\omega(L,t)$')
+# plt.title('End angular velocity vs Time')
+# plt.grid(True)
+# plt.savefig(folder_results + f"Omega.pdf", format="pdf")
+# plt.tight_layout()
 
-plt.figure()
-plt.plot(time_vec, inertial_velocity_end_mass_sol[1])
-plt.xlabel('Time (s)')
-plt.ylabel('$v_y$')
-plt.title('$v_y$ mass vs Time')
-plt.grid(True)
-plt.savefig(folder_results + f"Vel_y.pdf", format="pdf")
-plt.tight_layout()
-
+# plt.figure()
+# plt.plot(time_vec, inertial_velocity_end_mass_sol[1])
+# plt.xlabel('Time (s)')
+# plt.ylabel('$v_y$')
+# plt.title('$v_y$ mass vs Time')
+# plt.grid(True)
+# plt.savefig(folder_results + f"Vel_y.pdf", format="pdf")
+# plt.tight_layout()
 
 
 lin_velocity_sol = coenergy_beam_sol[:pinned_beam.n_lin_vel, :]
@@ -176,47 +176,53 @@ position_midpoint_y = 0.5*(position_nodes_y[1:] + position_nodes_y[:-1])
 initial_position = jnp.stack([position_midpoint_x,
                               position_midpoint_y], axis=1)
 
-position_sol = compute_beam_positions(theta_beam_sol, lin_velocity_sol, initial_position, time_vec)
+position_beam_sol = compute_beam_positions(theta_beam_sol, lin_velocity_sol, initial_position, time_vec)
 
-# Maximum time to plot
-T_max = 15
+dual_animation = animate_overlay_beam_deformation(time_vec, [position_beam_sol, \
+                                                  position_end_mass_sol.reshape(2, 1, -1)], \
+                                 labels=('Beam', 'Mass'))
 
-# Determine which indices correspond to t <= T_max
-time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
-
-norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
-
-fig, ax = plt.subplots()
-for j in time_indices:
-    x_nodes = position_sol[0, :, j]
-    y_nodes = position_sol[1, :, j]
-    
-    # Create segments between nodes
-    segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
-                         for i in range(x_nodes.size - 1)])
-    
-    # Color by bending moment
-    colors = moment_sol[:, j]  # shape: (n_elements,)
-    
-    lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
-    plt.gca().add_collection(lc)
-
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-# ax.set_title('Beam configurations over time')
-ax.grid(True)
-
-# Create a colorbar axis that matches the y-axis height
-divider = make_axes_locatable(ax)
-cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-cbar = fig.colorbar(lc, cax=cax)
-cbar.set_label('$M$')
-
-
-ax.set_xlim(-1.1*beam_length, 1.1*beam_length)
-ax.set_ylim(-1.1*beam_length, 0.1*beam_length)
-ax.set_aspect("equal", adjustable="box")
-
-fig.tight_layout()
-fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 plt.show()
+
+# # Maximum time to plot
+# T_max = 15
+
+# # Determine which indices correspond to t <= T_max
+# time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
+
+# norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
+
+# fig, ax = plt.subplots()
+# for j in time_indices:
+#     x_nodes = position_beam_sol[0, :, j]
+#     y_nodes = position_beam_sol[1, :, j]
+    
+#     # Create segments between nodes
+#     segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
+#                          for i in range(x_nodes.size - 1)])
+    
+#     # Color by bending moment
+#     colors = moment_sol[:, j]  # shape: (n_elements,)
+    
+#     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
+#     plt.gca().add_collection(lc)
+
+# ax.set_xlabel('x')
+# ax.set_ylabel('y')
+# # ax.set_title('Beam configurations over time')
+# ax.grid(True)
+
+# # Create a colorbar axis that matches the y-axis height
+# divider = make_axes_locatable(ax)
+# cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+# cbar = fig.colorbar(lc, cax=cax)
+# cbar.set_label('$M$')
+
+
+# ax.set_xlim(-1.1*beam_length, 1.1*beam_length)
+# ax.set_ylim(-1.1*beam_length, 0.1*beam_length)
+# ax.set_aspect("equal", adjustable="box")
+
+# fig.tight_layout()
+# fig.savefig(folder_results + "Configurations.pdf", format="pdf")
+# plt.show()
