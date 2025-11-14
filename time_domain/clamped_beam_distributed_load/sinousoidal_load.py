@@ -6,7 +6,8 @@ import jax.numpy as jnp
 import jax
 from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d_batch
-from src.fem.forcing import assemble_state_dependent_forcing_vector_cg
+from src.fem.forcing import assemble_state_dependent_forcing_vector_cg, \
+    assemble_state_dependent_forcing_vector_dg
 import matplotlib.pyplot as plt
 from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
@@ -31,10 +32,18 @@ clamped_beam = IntrinsicPlanarClampedBeam(n_elements, geometrical_props, materia
 H_matrix_clamped = clamped_beam.assemble_energy_matrix()
 J_linear_matrix_clamped = clamped_beam.assemble_linear_interconnection_matrix()
 
-
 jax.jit
 def spatial_force(t):
     return jnp.where(t <= 2, jnp.array([0, 5*jnp.sin(jnp.pi * t)]), jnp.array([0, 0]))
+
+# Simbolic expression to be converted into a distributed force
+def exp_f_body_x(t):
+    return lambda angle: + jnp.cos(angle) * spatial_force(t)[0] \
+                        + jnp.sin(angle) * spatial_force(t)[1]
+
+def exp_f_body_y(t):
+    return lambda angle: - jnp.sin(angle) * spatial_force(t)[0] \
+                        + jnp.cos(angle) * spatial_force(t)[1]   
 
 
 jax.jit
@@ -42,17 +51,27 @@ def vector_field_clamped(state_vector, t):
     theta_vector = state_vector[:clamped_beam.n_ang_vel]
     coenergy_vector = state_vector[clamped_beam.n_ang_vel:]
 
-    # To convert from spatial to material the transpose of the rotation matrix has to be taken
-    rot_matrix_batch = rotation_matrix_2d_batch(theta_vector)
-    # # Transpose only the last two dimensions
-    material_distributed_force = jnp.transpose(rot_matrix_batch, (0, 2, 1)) @ spatial_force(t)  # N_theta x 2
-    material_distributed_force = material_distributed_force.T.reshape((-1, ))
+        # To convert from spatial to material the transpose of the rotation matrix has to be taken
+    #     rot_matrix_batch = rotation_matrix_2d_batch(theta_vector)
+    #     # # Transpose only the last two dimensions
+    #     material_distributed_force = jnp.transpose(rot_matrix_batch, (0, 2, 1)) @ spatial_force(t)  # N_theta x 2
+    #     material_distributed_force = material_distributed_force.T.reshape((-1, ))
 
+    f_vector_x = assemble_state_dependent_forcing_vector_dg(clamped_beam.x_nodes,\
+                                                            theta_vector, exp_f_body_x(t))    
+    f_vector_y = assemble_state_dependent_forcing_vector_dg(clamped_beam.x_nodes,\
+                                                            theta_vector, exp_f_body_y(t))
     # Force vector of the size of the system
     load_vector = jnp.zeros((clamped_beam.n_coenergy, ))
 
-    load_vector = load_vector.at[:clamped_beam.n_lin_vel].set(\
-        material_distributed_force * clamped_beam.h_mesh)
+
+    #     load_vector = load_vector.at[:clamped_beam.n_lin_vel].set(\
+    #         material_distributed_force * clamped_beam.h_mesh)
+
+    # Forcing along the x direction
+    load_vector = load_vector.at[:clamped_beam.n_lin_vel_x].set(f_vector_x)
+    # Forcing along the y direction
+    load_vector = load_vector.at[clamped_beam.n_lin_vel_x:clamped_beam.n_lin_vel].set(f_vector_y)
 
     vector_field_theta = coenergy_vector[clamped_beam.n_lin_vel:clamped_beam.n_vel]
 
@@ -77,18 +96,12 @@ def vector_field_free(state_vector, t):
     lagrange_multiplier = state_vector[-n_lambda:]
 
     # Simbolic expression to be converted into a distributed force
-    exp_f_body_x = lambda angle: + jnp.cos(angle) * spatial_force(t)[0] \
-                                 + jnp.sin(angle) * spatial_force(t)[1]
-    
-    f_vector_x = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, theta_vector, exp_f_body_x)
-
-    exp_f_body_y = lambda angle: - jnp.sin(angle) * spatial_force(t)[0] \
-                                 + jnp.cos(angle) * spatial_force(t)[1]
-    
-    f_vector_y = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, theta_vector, exp_f_body_y)
+    f_vector_x = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, \
+                                                            theta_vector, exp_f_body_x(t))
+    f_vector_y = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, \
+                                                            theta_vector, exp_f_body_y(t))
     # Force vector of the size of the system
     load_vector = jnp.zeros((free_beam.n_coenergy, ))
-
     # Forcing along the x direction
     load_vector = load_vector.at[:free_beam.n_lin_vel_x].set(f_vector_x)
     # Forcing along the y direction

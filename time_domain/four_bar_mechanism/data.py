@@ -1,8 +1,16 @@
 from re import L
 import jax.numpy as jnp
+from jax import config; config.update("jax_enable_x64", True)
 
-# l1 cos θ1 + l2 cos(θ1) + l3 cos(θ3) = l0,
-# l1 sin θ1 + l2 sin (θ2) + l3 sin (θ3) = 0.
+
+n_elem_1 = 10
+n_elem_2 = 6
+n_elem_3 = 6
+
+# n_elem_1 = 20
+# n_elem_2 = 12
+# n_elem_3 = 12
+
 
 # Beam and material parameters
 
@@ -16,8 +24,16 @@ theta_3_0 = jnp.pi - jnp.arcsin(- (L_1 * jnp.sin(theta_1_0) + L_2*jnp.sin(theta_
 
 L_0 = L_1 * jnp.cos(theta_1_0) + L_2 * jnp.cos(theta_2_0) + L_3 * jnp.cos(theta_3_0)
 
-print("Theta3:", theta_3_0*180/jnp.pi)
-print("L0:", L_0)
+point_A_0 = jnp.array([0, 0])
+point_B_0 = jnp.array([L_1*jnp.cos(theta_1_0), 
+                       L_1*jnp.sin(theta_1_0)])
+
+point_C_0 = jnp.array([L_1*jnp.cos(theta_1_0) + L_2*jnp.cos(theta_2_0), 
+                       L_1*jnp.sin(theta_1_0) + L_2*jnp.sin(theta_2_0)])
+
+# r_x_mid_2_0 = L_1 * jnp.cos(theta_1_0) + L_2/2 * jnp.cos(theta_2_0)
+# r_y_mid_2_0 = L_1 * jnp.sin(theta_1_0) + L_2/2 * jnp.sin(theta_2_0)
+# r_mid_2_0 = jnp.array([r_x_mid_2_0, r_y_mid_2_0])
 
 height, width = 0.05 , 0.05 # Cross-section dimensions (m)
 
@@ -27,7 +43,13 @@ I = width*height**3/12  # Second moment of area (m^4)
 E = 2.1e11              # Young's modulus (Pa)
 nu = 0.3
 G = E/(2*(1+nu))        # Shear modulus (Pa)
+
+E_2 = 2.1e8
+# E_2 = 2.1e11
+G_2 = E_2/(2*(1+nu))   
 rho = 2710              # Density (kg/m³)
+
+# penalty = 0 #1e-3
 
 geometrical_props_1 = {
     'L': L_1,           # Length of the beam
@@ -56,4 +78,10 @@ material_props = {
     'rho': rho,  # Density
 }
 
-g = 9.8  # Gravitational acceleration (m/s²)
+material_props_2 = {
+    'E': E_2,      # Young's modulus
+    'G': G_2,      # Shear modulus 
+    'rho': rho,  # Density
+}
+
+g = 9.81  # Gravitational acceleration (m/s²)

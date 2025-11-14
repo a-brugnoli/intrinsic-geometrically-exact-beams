@@ -167,17 +167,17 @@ for j in time_indices:
     y_nodes_free = position_sol_free[1, :, j]
     
     # Create segments between nodes
-    segments_clamped = np.array([[[x_nodes_clamped[i], y_nodes_clamped[i]], 
+    segments_clamped = jnp.array([[[x_nodes_clamped[i], y_nodes_clamped[i]], 
                                 [x_nodes_clamped[i+1], y_nodes_clamped[i+1]] ]
                                     for i in range(x_nodes_clamped.size - 1)])
 
-    segments_free = np.array([[ [x_nodes_free[i], y_nodes_free[i]], 
+    segments_free = jnp.array([[ [x_nodes_free[i], y_nodes_free[i]], 
                                [x_nodes_free[i+1], y_nodes_free[i+1]] ] 
                          for i in range(x_nodes_free.size - 1)])
     
     # Color by bending moment
-    colors_clamped = moment_sol_clamped[:, j]  # shape: (n_elements,)
-    colors_free = moment_sol_free[:, j]  # shape: (n_elements,)
+    colors_clamped = moment_sol_clamped[:, j]  
+    colors_free = moment_sol_free[:, j]  
     
     lc_clamped = LineCollection(segments_clamped, array=colors_clamped, cmap='viridis', linewidths=2, norm=norm_clamped)
     lc_free = LineCollection(segments_free, array=colors_free, cmap='viridis', linewidths=2, norm=norm_free)

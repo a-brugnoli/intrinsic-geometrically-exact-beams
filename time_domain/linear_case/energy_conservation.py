@@ -23,7 +23,7 @@ free_beam = IntrinsicPlanarFreeBeam(n_elements, geometrical_props, material_prop
 H_matrix = free_beam.assemble_energy_matrix()
 J_linear_matrix = free_beam.assemble_linear_interconnection_matrix()
 
-coenergy_vector_0 = jnp.zeros(free_beam.n_dofs)
+coenergy_vector_0 = jnp.zeros(free_beam.n_coenergy)
 coenergy_vector_0 = coenergy_vector_0.at[free_beam.n_nodes:free_beam.n_lin_vel].set(jnp.sin(jnp.pi*free_beam.x_nodes))
 
 dt = 0.01

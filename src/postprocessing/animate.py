@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 import numpy as np
 
 def animate_beam_deformation(time_vector, coordinates, fps=30, interval=50, 
-                           save_path=None, title="Beam Deformation Animation",
+                           save_path=None, title="Beam Animation",
                            lock_at_end=False):
     """
     Create an animation of a single beam deformation over time.
@@ -120,7 +120,7 @@ def animate_beam_deformation(time_vector, coordinates, fps=30, interval=50,
 
 def animate_overlay_beam_deformation(time_vector, beam_coordinates,
                                    fps=30, interval=50, save_path=None,
-                                   title="Overlaid Beam Deformation Animation",
+                                   title="Beam Animation",
                                    colors=None, labels=None,
                                    markers=None, lock_at_end=False):
     """

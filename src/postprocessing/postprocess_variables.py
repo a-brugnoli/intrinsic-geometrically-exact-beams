@@ -13,10 +13,9 @@ def compute_beam_positions(theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray
     n_lin_vel_half = int(n_lin_vel / 2)
 
     if theta_sol.shape[0] == n_lin_vel_half+1:
-        jax.debug.print("Theta is nodal, velocity is DG. Converting theta to midpoint")
+        # jax.debug.print("Postprocessing Theta is nodal, velocity is DG. Converting theta to midpoint")
         theta_sol = (theta_sol[1:, :] + theta_sol[:-1, :])/2
     elif theta_sol.shape[0] == n_lin_vel_half:
-        jax.debug.print("Theta and velocity same dimension")
         pass
     
     # Integrate position vector dynamics using the trapezoidal rule

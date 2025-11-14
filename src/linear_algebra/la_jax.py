@@ -3,6 +3,10 @@ import jax
 from jax.scipy.linalg import solve
 from functools import partial
 
+# Enable 64-bit precision in JAX (must be set before any JAX operations)
+jax.config.update("jax_enable_x64", True)
+
+
 @jax.jit
 def skew_block_matrix(D):
     """
@@ -23,8 +27,114 @@ def skew_block_matrix(D):
     return jnp.concatenate([top, bottom], axis=0)
 
 
+
+def finite_difference_jacobian(fz_func, z, eps=None):
+    """
+    Compute the Jacobian of fz_func at z using finite differences.
+    
+    Parameters
+    ----------
+    fz_func : Callable[[Array], Array]
+        The function to differentiate.
+    z : Array
+        Point at which to compute the Jacobian. Shape (n,).
+    eps : float, optional
+        Step size for finite differences. If None, uses machine epsilon scaled appropriately.
+    
+    Returns
+    -------
+    J : Array
+        Jacobian matrix with shape (m, n) where m = len(fz_func(z)), n = len(z).
+    """
+    # Use optimal step size based on precision if not specified
+    if eps is None:
+        eps = jnp.sqrt(jnp.finfo(z.dtype).eps)
+    
+    f0 = fz_func(z)
+    n = z.shape[0]
+    m = f0.shape[0]
+    
+    # Vectorized computation of all columns
+    def col_func(i):
+        z_perturbed = z.at[i].add(eps)
+        f_perturbed = fz_func(z_perturbed)
+        return (f_perturbed - f0) / eps
+    
+    # Compute all columns of the Jacobian
+    J = jax.vmap(col_func)(jnp.arange(n))
+    
+    # Transpose to get (m, n) shape
+    return J.T
+
+
 @partial(jax.jit, static_argnums=0)
-def newton_solver(fz_func, z0, tol=1e-8, max_iter=20):
+def newton_solver_fd(fz_func, z0, tol=1e-12, max_iter=20, eps=None):
+    """
+    Solves a nonlinear equation using Newton's method with finite differences.
+    
+    Solves for a root of the function `fz_func(z) = 0` starting from
+    an initial guess `z0`, using Newton-Raphson iteration with finite
+    difference approximation for Jacobian computation.
+    
+    Parameters
+    ----------
+    fz_func : Callable[[Array], Array]
+        The function whose root is to be found. Should accept a vector `z` and return a vector.
+    z0 : Array
+        Initial guess for the root (should be float64 for maximum precision).
+    tol : float, optional
+        Tolerance for stopping criterion based on the L2 norm of the residual. Default is 1e-12.
+    max_iter : int, optional
+        Maximum number of iterations allowed. Default is 20.
+    eps : float, optional
+        Step size for finite differences. If None, uses sqrt(machine epsilon).
+    
+    Returns
+    -------
+    z_final : Array
+        Approximate root of the equation `fz_func(z) = 0`.
+    final_residual : float
+        L2 norm of the residual at the final iteration.
+    
+    Notes
+    -----
+    - Requires JAX x64 mode enabled: `jax.config.update("jax_enable_x64", True)`
+    - Uses forward finite differences to approximate the Jacobian.
+    - Optimal step size is sqrt(eps_machine) ≈ 1.5e-8 for float64.
+    - Solves the linear system `J dz = -fz_func(z)` using dense linear algebra.
+    - Uses `jax.lax.while_loop` to keep the computation JIT-compatible.
+    """
+    # Ensure z0 is float64 for maximum precision
+    z0 = jnp.asarray(z0, dtype=jnp.float64)
+    
+    def body_fn(state):
+        z, i = state
+        F = fz_func(z)
+        J = finite_difference_jacobian(fz_func, z, eps=eps)
+        delta = solve(J, -F, assume_a='gen')  # J \ -F
+        z_new = z + delta
+        return (z_new, i + 1)
+    
+    def cond_fn(state):
+        z, i = state
+        return (jnp.linalg.norm(fz_func(z)) > tol) & (i < max_iter)
+    
+    z_final, iter_count = jax.lax.while_loop(cond_fn, body_fn, (z0, 0))
+    
+    # Compute residual norm after iteration
+    final_residual = jnp.linalg.norm(fz_func(z_final))
+    
+    # JAX-compatible print
+    jax.debug.print(
+        "Newton (FD) terminated after {i} iterations: (residual = {res:.3e})",
+        i=iter_count, res=final_residual
+    )
+    
+    return z_final, final_residual
+
+
+@partial(jax.jit, static_argnums=0)
+def newton_solver_jax(fz_func, z0, tol=1e-8, max_iter=20):
     """
     Solves a nonlinear equation using Newton's method in JAX.
 
@@ -72,17 +182,16 @@ def newton_solver(fz_func, z0, tol=1e-8, max_iter=20):
     # Compute residual norm after iteration
     final_residual = jnp.linalg.norm(fz_func(z_final))
     
-
     # JAX-compatible print
     jax.debug.print(
         "Newton terminated after {i} iterations: (residual = {res:.3e})",
         i=iter_count, res=final_residual
     )
 
-    return z_final
+    return z_final, final_residual
 
-if __name__ == "__main__":
-    # Example usage
-    D = jnp.array([[1., 2.], [3., 4.]])
-    S = skew_block_matrix(D)
-    print(S)
+# if __name__ == "__main__":
+#     # Example usage
+#     D = jnp.array([[1., 2.], [3., 4.]])
+#     S = skew_block_matrix(D)
+#     print(S)

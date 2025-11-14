@@ -56,20 +56,24 @@ def vector_field(state_vector, t):
 
     vector_field_theta_beam = coenergy_vector_beam[pinned_beam.n_lin_vel:pinned_beam.n_vel]
 
+    y_beam_inertial = rot_matrix_at_L @  B_beam_velocity.T @ coenergy_vector_beam
+    y_mass_inertial = inertial_velocity_end_mass
+
+    u_beam_inertial = + y_mass_inertial
+    u_mass_inertial = - y_beam_inertial
+
     vector_field_coenergy_beam = J_linear_matrix_beam @ coenergy_vector_beam \
         + pinned_beam.assemble_nonlinear_dynamics(coenergy_vector_beam) \
-        + B_beam_velocity @ rot_matrix_at_L.T @ inertial_velocity_end_mass
+        + B_beam_velocity @ rot_matrix_at_L.T @ u_beam_inertial
     
     vector_field_inertial_velocity_end_mass = -g * m_mass * jnp.array([0, 1]) \
-          - rot_matrix_at_L @  B_beam_velocity.T @ coenergy_vector_beam
+                                              + u_mass_inertial
 
     return jnp.concatenate([vector_field_theta_beam, vector_field_coenergy_beam, \
                             vector_field_inertial_velocity_end_mass])
 
 
-alpha = 0
-
-angle_beam_0 = alpha * jnp.ones(pinned_beam.n_ang_vel)
+angle_beam_0 = jnp.zeros(pinned_beam.n_ang_vel)
 coenergy_vector_beam_0 = jnp.zeros(pinned_beam.n_coenergy)
 inertial_velocity_end_mass_0 = jnp.zeros(2)
 

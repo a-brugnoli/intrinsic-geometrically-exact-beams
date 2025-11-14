@@ -18,6 +18,28 @@ def _element_forcing_cg(xL, xR, u_local, nonlinear_func, n_gauss_points):
     return jnp.dot(integrand, w_q)
 
 
+@partial(jax.jit, static_argnums=[-2])
+def _element_forcing_dg(xL, xR, u_local, nonlinear_func, n_gauss_points):
+    """
+    Compute element-level forcing integral for DG0 test function.
+    
+    For DG0, the test function φ = 1 on the element, so we compute:
+        ∫_{xL}^{xR} f(u(x)) dx
+    """
+    xi_q, w_q = gauss_quadrature(n_gauss_points)
+    jac = (xR - xL) / 2.0
+    
+    # Evaluate u at Gauss points
+    u_interpolated_at_gp = eval_ref_elem_interp_at_nodes(u_local, xi_q)
+    
+    # Integrand: J * 1 * f(u) where the test function is constant = 1
+    integrand = jac * nonlinear_func(u_interpolated_at_gp)
+    
+    # Return scalar (single DOF per element)
+    return jnp.dot(integrand, w_q)
+
+
+
 @partial(jax.jit, static_argnums=[2])
 def assemble_state_dependent_forcing_vector_cg(x_nodes: jnp.ndarray,
                                                 u_dofs: jnp.ndarray,
@@ -59,6 +81,52 @@ def assemble_state_dependent_forcing_vector_cg(x_nodes: jnp.ndarray,
         acc = acc.at[i + 1].add(local[1])
         return acc
 
+    return jax.lax.fori_loop(0, n_elements, element_contribution, form)
+
+
+@partial(jax.jit, static_argnums=[2])
+def assemble_state_dependent_forcing_vector_dg(x_nodes: jnp.ndarray,
+                                                 u_dofs: jnp.ndarray,
+                                                 nonlinear_func: callable,
+                                                 n_gauss_points: int = 3) -> jnp.ndarray:
+    """
+    Assemble global nonlinear forcing vector f(u) for DG0 (piecewise constant) test functions.
+    
+    Args:
+        x_nodes (jnp.ndarray): 1D array of mesh node coordinates, length N+1.
+        u_dofs (jnp.ndarray): Degrees of freedom for u_h.
+            - If length N+1, u_h is piecewise linear (P1).
+            - If length N, u_h is piecewise constant (P0).
+        nonlinear_func (callable): Function f(u) defining the nonlinear term ∫ φᵢ f(u) dx
+        n_gauss_points (int): Number of Gauss points per element for integration (1 to 4)
+    
+    Returns:    
+        jnp.ndarray: Global forcing vector of length N corresponding to the piecewise constant
+                     test functions (one per element).
+    """
+    n_nodes = x_nodes.shape[0]
+    n_elements = n_nodes - 1
+    len_u = u_dofs.shape[0]
+    assert len_u in (n_nodes, n_nodes - 1), "u_dofs must be of length N+1 or N"
+    u_is_p1 = len_u == n_nodes
+    
+    form = jnp.zeros(n_elements)  # One DOF per element for DG0
+    
+    def element_contribution(i, acc):
+        """
+        Compute the local contribution to the global linear form for each element.
+        For DG0 test functions, φᵢ = 1 on element i, 0 elsewhere.
+        We compute ∫_{Kᵢ} f(u) dx
+        """
+        xL, xR = x_nodes[i], x_nodes[i + 1]
+        u_local = jax.lax.dynamic_slice(u_dofs, (i,), (2,)) if u_is_p1 else jnp.array([u_dofs[i]])
+        
+        # For DG0 test function, we integrate f(u) over the element
+        # The test function φᵢ = 1 on element i
+        local = _element_forcing_dg(xL, xR, u_local, nonlinear_func, n_gauss_points)
+        acc = acc.at[i].set(local)
+        return acc
+    
     return jax.lax.fori_loop(0, n_elements, element_contribution, form)
 
 
