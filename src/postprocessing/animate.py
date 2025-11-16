@@ -122,7 +122,8 @@ def animate_overlay_beam_deformation(time_vector, beam_coordinates,
                                    fps=30, interval=50, save_path=None,
                                    title="Beam Animation",
                                    colors=None, labels=None,
-                                   markers=None, lock_at_end=False):
+                                   markers=None, lock_at_end=False,
+                                   x_lim=None, y_lim=None):
     """
     Create an animation showing multiple beam deformations overlaid on the same plot.
     
@@ -183,19 +184,22 @@ def animate_overlay_beam_deformation(time_vector, beam_coordinates,
     
     # Set up the figure
     fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Calculate combined plot limits across all beams
-    x_min = min(coords[0].min() for coords in coords_np)
-    x_max = max(coords[0].max() for coords in coords_np)
-    y_min = min(coords[1].min() for coords in coords_np)
-    y_max = max(coords[1].max() for coords in coords_np)
-    
-    x_range = x_max - x_min
-    y_range = y_max - y_min
     padding = 0.1
     
-    ax.set_xlim(x_min - padding * x_range, x_max + padding * x_range)
-    ax.set_ylim(y_min - padding * y_range, y_max + padding * y_range)
+    if x_lim==None:
+        x_min = min(coords[0].min() for coords in coords_np)
+        x_max = max(coords[0].max() for coords in coords_np)
+        x_range = x_max - x_min
+        ax.set_xlim(x_min - padding * x_range, x_max + padding * x_range)
+    else:
+        ax.set_xlim(x_lim[0], x_lim[1])
+    if y_lim==None:
+        y_min = min(coords[1].min() for coords in coords_np)
+        y_max = max(coords[1].max() for coords in coords_np)
+        y_range = y_max - y_min
+        ax.set_ylim(y_min - padding * y_range, y_max + padding * y_range)
+    else:
+        ax.set_ylim(y_lim[0], y_lim[1])
     
     # Initialize line plots for all beams
     lines = []

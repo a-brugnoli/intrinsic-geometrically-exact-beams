@@ -27,7 +27,7 @@ def skew_block_matrix(D):
     return jnp.concatenate([top, bottom], axis=0)
 
 
-
+@partial(jax.jit, static_argnums=0)
 def finite_difference_jacobian(fz_func, z, eps=None):
     """
     Compute the Jacobian of fz_func at z using finite differences.
@@ -52,7 +52,6 @@ def finite_difference_jacobian(fz_func, z, eps=None):
     
     f0 = fz_func(z)
     n = z.shape[0]
-    m = f0.shape[0]
     
     # Vectorized computation of all columns
     def col_func(i):
