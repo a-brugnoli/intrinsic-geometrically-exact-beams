@@ -2,23 +2,24 @@ from re import L
 import jax.numpy as jnp
 from jax import config; config.update("jax_enable_x64", True)
 
+T_end = 10
+
+dt = 0.005
+E_2 = 2.1e8
+
+# dt = 0.02
+# E_2 = 2.1e11
 
 n_elem_1 = 10
 n_elem_2 = 6
 n_elem_3 = 6
 
-# n_elem_1 = 20
-# n_elem_2 = 12
-# n_elem_3 = 12
-
-
 # Beam and material parameters
-
 L_1 = jnp.sqrt(5)
 L_2 = 1.5
 L_3 = jnp.sqrt(2)
 
-theta_1_0 = jnp.atan2(1, 2)
+theta_1_0 = 0 #jnp.atan2(1, 2)
 theta_2_0 = 0
 theta_3_0 = jnp.pi - jnp.arcsin(- (L_1 * jnp.sin(theta_1_0) + L_2*jnp.sin(theta_2_0)) / L_3)
 
@@ -44,12 +45,8 @@ E = 2.1e11              # Young's modulus (Pa)
 nu = 0.3
 G = E/(2*(1+nu))        # Shear modulus (Pa)
 
-E_2 = 2.1e8
-# E_2 = 2.1e11
 G_2 = E_2/(2*(1+nu))   
 rho = 2710              # Density (kg/m³)
-
-# penalty = 0 #1e-3
 
 geometrical_props_1 = {
     'L': L_1,           # Length of the beam
