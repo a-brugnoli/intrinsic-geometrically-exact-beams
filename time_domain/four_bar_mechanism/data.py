@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from jax import config; config.update("jax_enable_x64", True)
+
 T_end = 10
 dt = 0.005
 E_2 = 2.1e8
@@ -74,3 +75,6 @@ material_props_2 = {
     'rho': rho,  # Density
 }
 
+n_elem = n_elem_1
+theta_0 = theta_1_0
+geometrical_props = geometrical_props_1
