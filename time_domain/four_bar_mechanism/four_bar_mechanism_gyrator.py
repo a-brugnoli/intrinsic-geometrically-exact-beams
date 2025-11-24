@@ -6,8 +6,9 @@ from data import material_props, material_props_2, \
     n_elem_1, n_elem_2, n_elem_3, \
     point_A_0, point_B_0, point_C_0, \
     g, A, rho, dt, T_end
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
+import numpy as np
 from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d
 from src.fem.forcing import assemble_state_dependent_forcing_vector_cg, \
@@ -24,7 +25,7 @@ import os
 path_file = os.path.dirname(os.path.abspath(__file__))
 
 E_2 = material_props_2['E']
-if E_2 == 2.1e11:
+if E_2 > 2.1e10:
     folder_results = path_file + "/results_gyrator_stiff/"
 else:
     folder_results = path_file + "/results_gyrator_soft/"
@@ -138,6 +139,7 @@ def vector_field(state_vector, t):
                                                             theta_vector_1, exp_f_material_x(t))    
     f_vector_y_1 = assemble_state_dependent_forcing_vector_dg(beam_1.x_nodes,\
                                                             theta_vector_1, exp_f_material_y(t))
+    
     gravity_vector_1 = gravity_vector_1.at[:beam_1.n_lin_vel_x].set(f_vector_x_1)
     gravity_vector_1 = gravity_vector_1.at[beam_1.n_lin_vel_x:beam_1.n_lin_vel].set(f_vector_y_1)
 
@@ -145,7 +147,10 @@ def vector_field(state_vector, t):
     vector_field_coenergy_1 = J_linear_matrix_1 @ coenergy_vector_1 \
         + beam_1.assemble_nonlinear_dynamics(coenergy_vector_1) \
         + gravity_vector_1 
-
+    
+    jax.debug.print("Theta vector 1 norm: {} ", jnp.linalg.norm(theta_vector_1))    
+    # jax.debug.print("Thetadot vector norm: {} ", jnp.linalg.norm(vector_field_theta_1))    
+   
     # vector_field_coenergy_1 = J_linear_matrix_1 @ coenergy_vector_1 \
     #     + beam_1.assemble_nonlinear_dynamics(coenergy_vector_1) \
     #     + B_1_velocity_at_L @ rot_matrix_1_at_L.T @ u_1_at_L_inertial \
@@ -216,8 +221,8 @@ else:
 time_vec = time_vec_all[::step_plot]
 
 theta_1_sol = trajectory[:beam_1.n_ang_vel, ::step_plot]
-theta_2_sol = trajectory[ind_theta_2:ind_theta_2 + beam_2.n_ang_vel, ::step_plot]
-theta_3_sol = trajectory[ind_theta_3:ind_theta_3 + beam_3.n_ang_vel, ::step_plot]
+theta_2_sol = trajectory[ind_theta_2:ind_theta_3, ::step_plot]
+theta_3_sol = trajectory[ind_theta_3:ind_coenergy_1, ::step_plot]
 
 coenergy_1_sol = trajectory[ind_coenergy_1:ind_coenergy_2, ::step_plot]
 coenergy_2_sol = trajectory[ind_coenergy_2:ind_coenergy_3, ::step_plot]
@@ -228,39 +233,44 @@ lin_velocity_2_sol = coenergy_2_sol[:beam_2.n_lin_vel, ::step_plot]
 lin_velocity_3_sol = coenergy_3_sol[:beam_3.n_lin_vel, ::step_plot]
 
 x_A, y_A = point_A_0
-position_nodes_1_x = x_A + beam_1.x_nodes * jnp.cos(theta_1_sol[:, 0])
-position_midpoint_1_x = 0.5*(position_nodes_1_x[1:] + position_nodes_1_x[:-1])
-position_nodes_1_y = y_A + beam_1.x_nodes * jnp.sin(theta_1_sol[:, 0])
-position_midpoint_1_y = 0.5*(position_nodes_1_y[1:] + position_nodes_1_y[:-1])
-initial_position_1 = jnp.stack([position_midpoint_1_x,
-                                position_midpoint_1_y], axis=1)
+x_points_1_t0 = x_A + beam_1.x_nodes * jnp.cos(theta_1_sol[:, 0])
+y_points_1_t0 = y_A + beam_1.x_nodes * jnp.sin(theta_1_sol[:, 0])
+
+x_midpoints_1_t0 = 0.5*(x_points_1_t0[1:] + x_points_1_t0[:-1])
+y_midpoints_1_t0 = 0.5*(y_points_1_t0[1:] + y_points_1_t0[:-1])
+positions_1_t0 = jnp.stack([x_midpoints_1_t0,
+                            y_midpoints_1_t0], axis=1)
 
 position_1_sol = compute_beam_positions(theta_1_sol, 
                                         lin_velocity_1_sol, 
-                                        initial_position_1, time_vec)
+                                        positions_1_t0, time_vec)
+
+jax.debug.print("Norm position 1 {}", jnp.linalg.norm(\
+    jnp.linalg.norm(position_1_sol, axis=0), axis=0))
 
 x_B, y_B = point_B_0
-position_nodes_2_x = x_B + beam_2.x_nodes * jnp.cos(theta_2_sol[:, 0])
-position_nodes_2_y = y_B + beam_2.x_nodes * jnp.sin(theta_2_sol[:, 0])
+x_points_2_t0 = x_B + beam_2.x_nodes * jnp.cos(theta_2_sol[:, 0])
+y_points_2_t0 = y_B + beam_2.x_nodes * jnp.sin(theta_2_sol[:, 0])
 
-initial_position_2 = jnp.stack([position_nodes_2_x,
-                                position_nodes_2_y], axis=1)
+positions_2_t0 = jnp.stack([x_points_2_t0,
+                                y_points_2_t0], axis=1)
 
 position_2_sol = compute_beam_positions(theta_2_sol, 
                                         lin_velocity_2_sol, 
-                                        initial_position_2, time_vec)
+                                        positions_2_t0, time_vec)
 
 x_C, y_C = point_C_0
-position_nodes_3_x = x_C + beam_3.x_nodes * jnp.cos(theta_3_sol[:, 0])
-position_midpoint_3_x = 0.5*(position_nodes_3_x[1:] + position_nodes_3_x[:-1])
-position_nodes_3_y = y_C + beam_3.x_nodes * jnp.sin(theta_3_sol[:, 0])
-position_midpoint_3_y = 0.5*(position_nodes_3_y[1:] + position_nodes_3_y[:-1])
-initial_position_3 = jnp.stack([position_midpoint_3_x,
-                                position_midpoint_3_y], axis=1)
+x_points_3_t0 = x_C + beam_3.x_nodes * jnp.cos(theta_3_sol[:, 0])
+y_points_3_t0 = y_C + beam_3.x_nodes * jnp.sin(theta_3_sol[:, 0])
+
+x_midpoints_3_t0 = 0.5*(x_points_3_t0[1:] + x_points_3_t0[:-1])
+y_midpoints_3_t0 = 0.5*(y_points_3_t0[1:] + y_points_3_t0[:-1])
+positions_3_t0 = jnp.stack([x_midpoints_3_t0,
+                                y_midpoints_3_t0], axis=1)
 
 position_3_sol = compute_beam_positions(theta_3_sol, 
                                         lin_velocity_3_sol, 
-                                        initial_position_3, time_vec)
+                                        positions_3_t0, time_vec)
 
 # # Middle point of beam 2
 # node_mid_2 = int(n_elem_2/2)

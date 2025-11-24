@@ -2,7 +2,7 @@ from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
 
 from data import geometrical_props, material_props, \
-    A, rho, g, theta_0, dt, T_end
+    A, rho, g, theta_0, dt, T_end, n_elem
 import jax.numpy as jnp
 import jax
 from src.time_integration.utilities import simulate
@@ -10,6 +10,9 @@ from src.rotations.utilities import rotation_matrix_2d_batch
 from src.fem.forcing import assemble_state_dependent_forcing_vector_cg, \
     assemble_state_dependent_forcing_vector_dg
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize
 from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
@@ -22,13 +25,12 @@ folder_results = path_file + "/results/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
-n_elements = 50  # Number of finite elements
-pinned_beam = IntrinsicPlanarPinnedBeam(n_elements, geometrical_props, material_props)
+pinned_beam = IntrinsicPlanarPinnedBeam(n_elem, geometrical_props, material_props)
 H_matrix_pinned = pinned_beam.assemble_energy_matrix()
 J_linear_matrix_pinned = pinned_beam.assemble_linear_interconnection_matrix()
 
 
-free_beam = IntrinsicPlanarFreeBeam(n_elements, geometrical_props, material_props)
+free_beam = IntrinsicPlanarFreeBeam(n_elem, geometrical_props, material_props)
 H_matrix_free = free_beam.assemble_energy_matrix()
 J_linear_matrix_free = free_beam.assemble_linear_interconnection_matrix()
 B_matrix_free = free_beam.assemble_control_matrix()
@@ -72,10 +74,12 @@ def vector_field_pinned(state_vector, t):
     f_vector_y = assemble_state_dependent_forcing_vector_dg(pinned_beam.x_nodes,\
                                                             theta_vector, exp_f_material_y(t))
     
+
     # Forcing along the x direction
     load_vector = load_vector.at[:pinned_beam.n_lin_vel_x].set(f_vector_x)
     # Forcing along the y direction
     load_vector = load_vector.at[pinned_beam.n_lin_vel_x:pinned_beam.n_lin_vel].set(f_vector_y)
+
 
     vector_field_theta = coenergy_vector[pinned_beam.n_lin_vel:pinned_beam.n_vel]
 
@@ -86,39 +90,39 @@ def vector_field_pinned(state_vector, t):
     return jnp.concatenate([vector_field_theta, vector_field_coenergy])
 
 
-jax.jit
-def vector_field_free(state_vector, t):
-    theta_vector = state_vector[:free_beam.n_ang_vel]
-    coenergy_vector = state_vector[free_beam.n_ang_vel:-n_lambda]
-    lagrange_multiplier = state_vector[-n_lambda:]
-    lagrange_multiplier_at_0 = lagrange_multiplier[:2]
-    lagrange_multiplier_at_L = lagrange_multiplier[2:]
+# jax.jit
+# def vector_field_free(state_vector, t):
+#     theta_vector = state_vector[:free_beam.n_ang_vel]
+#     coenergy_vector = state_vector[free_beam.n_ang_vel:-n_lambda]
+#     lagrange_multiplier = state_vector[-n_lambda:]
+#     lagrange_multiplier_at_0 = lagrange_multiplier[:2]
+#     lagrange_multiplier_at_L = lagrange_multiplier[2:]
 
-    f_vector_x = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, \
-                                                            theta_vector, exp_f_material_x(t))
-    f_vector_y = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, \
-                                                            theta_vector, exp_f_material_y(t))
-    # Force vector of the size of the system
-    load_vector = jnp.zeros((free_beam.n_coenergy, ))
-    # Forcing along the x direction
-    load_vector = load_vector.at[:free_beam.n_lin_vel_x].set(f_vector_x)
-    # Forcing along the y direction
-    load_vector = load_vector.at[free_beam.n_lin_vel_x:free_beam.n_lin_vel].set(f_vector_y)
+#     f_vector_x = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, \
+#                                                             theta_vector, exp_f_material_x(t))
+#     f_vector_y = assemble_state_dependent_forcing_vector_cg(free_beam.x_nodes, \
+#                                                             theta_vector, exp_f_material_y(t))
+#     # Force vector of the size of the system
+#     load_vector = jnp.zeros((free_beam.n_coenergy, ))
+#     # Forcing along the x direction
+#     load_vector = load_vector.at[:free_beam.n_lin_vel_x].set(f_vector_x)
+#     # Forcing along the y direction
+#     load_vector = load_vector.at[free_beam.n_lin_vel_x:free_beam.n_lin_vel].set(f_vector_y)
 
-    vector_field_theta = coenergy_vector[free_beam.n_lin_vel:free_beam.n_vel]
+#     vector_field_theta = coenergy_vector[free_beam.n_lin_vel:free_beam.n_vel]
 
-    vector_field_coenergy = J_linear_matrix_free @ coenergy_vector \
-        + free_beam.assemble_nonlinear_dynamics(coenergy_vector) \
-        + B_free_force_at_0 @ lagrange_multiplier_at_0 \
-        + B_free_force_at_L @ lagrange_multiplier_at_L \
-        + load_vector
+#     vector_field_coenergy = J_linear_matrix_free @ coenergy_vector \
+#         + free_beam.assemble_nonlinear_dynamics(coenergy_vector) \
+#         + B_free_force_at_0 @ lagrange_multiplier_at_0 \
+#         + B_free_force_at_L @ lagrange_multiplier_at_L \
+#         + load_vector
     
-    vector_field_constraints_at_0 = - B_free_force_at_0.T @ coenergy_vector
-    vector_field_constraints_at_L = - B_free_force_at_L.T @ coenergy_vector
+#     vector_field_constraints_at_0 = - B_free_force_at_0.T @ coenergy_vector
+#     vector_field_constraints_at_L = - B_free_force_at_L.T @ coenergy_vector
 
-    return jnp.concatenate([vector_field_theta, vector_field_coenergy, 
-                            vector_field_constraints_at_0,
-                            vector_field_constraints_at_L])
+#     return jnp.concatenate([vector_field_theta, vector_field_coenergy, 
+#                             vector_field_constraints_at_0,
+#                             vector_field_constraints_at_L])
 
 
 
@@ -156,14 +160,104 @@ state_vector_0_free = jnp.concatenate([angle_0_free, coenergy_vector_0_free, lag
 E_matrix_free = jax.scipy.linalg.block_diag(jnp.eye(free_beam.n_ang_vel), \
                                             H_matrix_free, jnp.zeros((n_lambda, n_lambda)))
 
-trajectory_free = simulate(state_vector_0_free, dt, n_steps, E_matrix_free, vector_field_free)
+# trajectory_free = simulate(state_vector_0_free, dt, n_steps, E_matrix_free, vector_field_free)
 
-theta_sol_free = trajectory_free[:free_beam.n_ang_vel, ::step_plot]
-coenergy_sol_free = trajectory_free[free_beam.n_ang_vel:-n_lambda, ::step_plot]
-lagrange_sol_free = trajectory_free[-n_lambda:, ::step_plot]
+# theta_sol_free = trajectory_free[:free_beam.n_ang_vel, ::step_plot]
+# coenergy_sol_free = trajectory_free[free_beam.n_ang_vel:-n_lambda, ::step_plot]
+# lagrange_sol_free = trajectory_free[-n_lambda:, ::step_plot]
 
-energy_vec_free, kinetic_energy_vec_free, deformation_energy_vec_free = \
-    free_beam.compute_energies(coenergy_sol_free)
+# energy_vec_free, kinetic_energy_vec_free, deformation_energy_vec_free = \
+#     free_beam.compute_energies(coenergy_sol_free)
+
+x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_sol_pinned[:, 0])
+y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_sol_pinned[:, 0])
+x_midpoints_pinned_0 = 0.5*(x_points_pinned_0[1:] + x_points_pinned_0[:-1])
+y_midpoints_pinned_0 = 0.5*(y_points_pinned_0[1:] + y_points_pinned_0[:-1])
+
+initial_position_pinned = jnp.stack([x_midpoints_pinned_0,
+                                     y_midpoints_pinned_0], axis=1)
+
+lin_velocity_sol_pinned = coenergy_sol_pinned[:pinned_beam.n_lin_vel, :]
+position_sol_pinned = compute_beam_positions(theta_sol_pinned, lin_velocity_sol_pinned, initial_position_pinned, time_vec)
+
+jax.debug.print("Norm position 1 {}", jnp.linalg.norm(\
+    jnp.linalg.norm(position_sol_pinned, axis=0), axis=0))
+
+# x_points_free_0 = free_beam.x_nodes * jnp.cos(theta_sol_free[:, 0])
+# y_points_free_0 = free_beam.x_nodes * jnp.sin(theta_sol_free[:, 0])
+
+# initial_position_free = jnp.stack([x_points_free_0,
+#                                    y_points_free_0], axis=1)
+
+# lin_velocity_sol_free = coenergy_sol_free[:free_beam.n_lin_vel, :]
+# position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
+
+time_instants = jnp.array([j*2 for j in range(6)])
+time_indices = [j for j in range(len(time_vec)) if time_vec[j] in time_instants]
+
+norm = Normalize(vmin=jnp.min(time_instants), vmax=jnp.max(time_instants))
+
+fig, ax = plt.subplots()
+for j in time_indices:
+
+    x_nodes_1 = position_sol_pinned[0, :, j]
+    y_nodes_1 = position_sol_pinned[1, :, j]
+
+    # x_nodes_2 = position_sol_free[0, :, j]
+    # y_nodes_2 = position_sol_free[1, :, j]
+
+    # Create segments between nodes
+    segments_1 = jnp.array([[[x_nodes_1[i], y_nodes_1[i]], 
+                            [x_nodes_1[i+1], y_nodes_1[i+1]] ]
+                            for i in range(x_nodes_1.size - 1)])
+
+    # segments_2 = jnp.array([[[x_nodes_2[i], y_nodes_2[i]], 
+    #                         [x_nodes_2[i+1], y_nodes_2[i+1]] ] 
+    #                         for i in range(x_nodes_2.size - 1)])
+    
+    color_values = jnp.full(segments_1.shape[0], time_vec[j])
+    
+    lc_1 = LineCollection(segments_1, array=color_values, cmap='viridis', linewidths=2, norm=norm)
+    # lc_2 = LineCollection(segments_2, array=color_values, cmap='viridis', linewidths=2, norm=norm)
+
+    plt.gca().add_collection(lc_1)
+    # plt.gca().add_collection(lc_2)
+
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+ax.grid(True)
+
+# Create a colorbar axis that matches the y-axis height
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+
+cbar_1 = fig.colorbar(lc_1, cax=cax)
+# cbar_2 = fig.colorbar(lc_2, cax=cax)
+
+cbar_1.set_label('$t$')
+# cbar_2.set_label('$t$')
+
+ax.set_xlim(-0.1, 3.5)
+ax.set_ylim(-2.1, 1.5)
+
+fig.tight_layout()
+fig.savefig(folder_results + "Configurations.pdf", format="pdf")
+
+# # Create and display animation
+# from src.postprocessing.animate import animate_overlay_beam_deformation
+# print("Creating animation...")
+# anim = animate_overlay_beam_deformation(
+#     time_vec, [position_sol_pinned, position_sol_free],
+#     fps=20, interval=100,
+#     title="Comparison: Clamped Beam under distributed Load",
+#     colors=('blue', 'red'),
+#     labels=('Pinned', 'Free'),
+#     save_path=folder_results + f"Pinned_vs_Free.gif"
+# )
+
+plt.show()
+
 
 # # # Plot of energy trend
 # plt.figure()
@@ -217,39 +311,3 @@ energy_vec_free, kinetic_energy_vec_free, deformation_energy_vec_free = \
 # plt.tight_layout()
 # plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
 
-
-x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_sol_pinned[:, 0])
-y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_sol_pinned[:, 0])
-x_midpoints_pinned_0 = 0.5*(x_points_pinned_0[1:] + x_points_pinned_0[:-1])
-y_midpoints_pinned_0 = 0.5*(y_points_pinned_0[1:] + y_points_pinned_0[:-1])
-
-initial_position_pinned = jnp.stack([x_midpoints_pinned_0,
-                                     y_midpoints_pinned_0], axis=1)
-
-lin_velocity_sol_pinned = coenergy_sol_pinned[:pinned_beam.n_lin_vel, :]
-position_sol_pinned = compute_beam_positions(theta_sol_pinned, lin_velocity_sol_pinned, initial_position_pinned, time_vec)
-
-
-x_points_free_0 = free_beam.x_nodes * jnp.cos(theta_sol_free[:, 0])
-y_points_free_0 = free_beam.x_nodes * jnp.sin(theta_sol_free[:, 0])
-
-initial_position_free = jnp.stack([x_points_free_0,
-                                   y_points_free_0], axis=1)
-
-lin_velocity_sol_free = coenergy_sol_free[:free_beam.n_lin_vel, :]
-position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
-
-# Create and display animation
-from src.postprocessing.animate import animate_overlay_beam_deformation
-print("Creating animation...")
-anim = animate_overlay_beam_deformation(
-    time_vec, [position_sol_pinned, position_sol_free],
-    fps=20, interval=100,
-    title="Comparison: Clamped Beam under distributed Load",
-    colors=('blue', 'red'),
-    labels=('Pinned', 'Free'),
-    save_path=folder_results + f"Pinned_vs_Free.gif"
-)
-
-# Show the animation
-plt.show()

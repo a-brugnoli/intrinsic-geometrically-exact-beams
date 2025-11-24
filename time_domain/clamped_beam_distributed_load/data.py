@@ -1,9 +1,9 @@
-from re import L
 import jax.numpy as jnp
 from jax import config; config.update("jax_enable_x64", True)
 
 # Beam and material parameters
 
+n_elem = 10  # Number of finite elements
 dt = 0.005
 T_end = 10
 
