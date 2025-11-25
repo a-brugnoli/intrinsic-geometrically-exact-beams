@@ -221,10 +221,8 @@ coenergy_1_sol = trajectory[ind_coenergy_1:ind_coenergy_2, ::step_plot]
 coenergy_2_sol = trajectory[ind_coenergy_2:ind_coenergy_3, ::step_plot]
 coenergy_3_sol = trajectory[ind_coenergy_3:, ::step_plot]
 
-
 energy_vec, kinetic_energy_vec, deformation_energy_vec = \
     beam_1.compute_energies(coenergy_1_sol)
-
 
 lin_velocity_1_sol = coenergy_1_sol[:beam_1.n_lin_vel]
 lin_velocity_2_sol = coenergy_2_sol[:beam_2.n_lin_vel]
@@ -244,86 +242,9 @@ position_1_sol = compute_beam_positions(theta_1_sol,
                                         positions_1_t0, time_vec)
 
 
-
 norm_position_sol = jnp.linalg.norm(position_1_sol, axis=(0, 1))
 norm_lin_velocity_sol = jnp.linalg.norm(lin_velocity_1_sol, axis=0)
 norm_theta_sol = jnp.linalg.norm(theta_1_sol, axis=0)
-
-
-# plt.figure()
-# plt.plot(time_vec, norm_position_sol)
-# plt.xlabel('Time (s)')
-# plt.ylabel(r'$||\mathbf{r}||$')
-# plt.title(' Norm position vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"NormPosition.pdf", format="pdf")
-
-# plt.figure()
-# plt.plot(time_vec, norm_lin_velocity_sol)
-# plt.xlabel('Time (s)')
-# plt.ylabel(r'$||\mathbf{v}||$')
-# plt.title(' Velocity position vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"NormVelocity.pdf", format="pdf")
-
-
-# plt.figure()
-# plt.plot(time_vec, norm_theta_sol)
-# plt.xlabel('Time (s)')
-# plt.ylabel(r'$||\theta||$')
-# plt.title(' Norm Theta vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"NormTheta.pdf", format="pdf")
-
-
-# # # Plot of energy trend
-# plt.figure()
-# plt.plot(time_vec, energy_vec)
-# plt.xlabel('Time (s)')
-# plt.ylabel('Energy (J)')
-# plt.title('Energy vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"Energies.pdf", format="pdf")
-
-
-# # # Plot of energy trend
-# plt.figure()
-# plt.plot(time_vec, kinetic_energy_vec)
-# plt.xlabel('Time (s)')
-# plt.ylabel('Kinetic Energy (J)')
-# plt.title('Kinetic Energy vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"Kin_Energies.pdf", format="pdf")
-
-
-# # # Plot of energy trend
-# plt.figure()
-# plt.plot(time_vec, deformation_energy_vec)
-# plt.xlabel('Time (s)')
-# plt.ylabel('Potential Energy (J)')
-# plt.title('Potential Energy vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"Potential_Energies.pdf", format="pdf")
-
-
-# # Plot of energy difference
-# plt.figure()
-# plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'r')
-# plt.yscale('log')
-# plt.xlabel('Time (s)')
-# plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
-# plt.title('Delta Energy vs Time')
-# plt.grid(True)
-# plt.tight_layout()
-# plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
-
-
 
 x_B, y_B = point_B_0
 x_points_2_t0 = x_B + beam_2.x_nodes * jnp.cos(theta_2_sol[:, 0])
@@ -444,3 +365,79 @@ fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 #                                     y_lim=[-2.5, 1.5])
 
 plt.show()
+
+
+
+# plt.figure()
+# plt.plot(time_vec, norm_position_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel(r'$||\mathbf{r}||$')
+# plt.title(' Norm position vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"NormPosition.pdf", format="pdf")
+
+# plt.figure()
+# plt.plot(time_vec, norm_lin_velocity_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel(r'$||\mathbf{v}||$')
+# plt.title(' Velocity position vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"NormVelocity.pdf", format="pdf")
+
+
+# plt.figure()
+# plt.plot(time_vec, norm_theta_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel(r'$||\theta||$')
+# plt.title(' Norm Theta vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"NormTheta.pdf", format="pdf")
+
+
+# # # Plot of energy trend
+# plt.figure()
+# plt.plot(time_vec, energy_vec)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Energy (J)')
+# plt.title('Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"Energies.pdf", format="pdf")
+
+
+# # # Plot of energy trend
+# plt.figure()
+# plt.plot(time_vec, kinetic_energy_vec)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Kinetic Energy (J)')
+# plt.title('Kinetic Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"Kin_Energies.pdf", format="pdf")
+
+
+# # # Plot of energy trend
+# plt.figure()
+# plt.plot(time_vec, deformation_energy_vec)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Potential Energy (J)')
+# plt.title('Potential Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"Potential_Energies.pdf", format="pdf")
+
+
+# # Plot of energy difference
+# plt.figure()
+# plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'r')
+# plt.yscale('log')
+# plt.xlabel('Time (s)')
+# plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+# plt.title('Delta Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
+
