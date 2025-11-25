@@ -148,8 +148,6 @@ def vector_field(state_vector, t):
         + beam_1.assemble_nonlinear_dynamics(coenergy_vector_1) \
         + gravity_vector_1 
     
-    jax.debug.print("Theta vector 1 norm: {} ", jnp.linalg.norm(theta_vector_1))    
-    # jax.debug.print("Thetadot vector norm: {} ", jnp.linalg.norm(vector_field_theta_1))    
    
     # vector_field_coenergy_1 = J_linear_matrix_1 @ coenergy_vector_1 \
     #     + beam_1.assemble_nonlinear_dynamics(coenergy_vector_1) \
@@ -244,9 +242,6 @@ positions_1_t0 = jnp.stack([x_midpoints_1_t0,
 position_1_sol = compute_beam_positions(theta_1_sol, 
                                         lin_velocity_1_sol, 
                                         positions_1_t0, time_vec)
-
-jax.debug.print("Norm position 1 {}", jnp.linalg.norm(\
-    jnp.linalg.norm(position_1_sol, axis=0), axis=0))
 
 x_B, y_B = point_B_0
 x_points_2_t0 = x_B + beam_2.x_nodes * jnp.cos(theta_2_sol[:, 0])
