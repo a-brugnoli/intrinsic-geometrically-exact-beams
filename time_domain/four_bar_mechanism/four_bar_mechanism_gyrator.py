@@ -26,7 +26,7 @@ path_file = os.path.dirname(os.path.abspath(__file__))
 
 E_2 = material_props_2['E']
 if E_2 > 2.1e10:
-    folder_results = path_file + "/results/gyrator_stiff/"
+    folder_results = path_file + "/results/gyrator_stiff_2/"
 else:
     folder_results = path_file + "/results/gyrator_soft/"
 if not os.path.exists(folder_results):
@@ -119,20 +119,20 @@ def vector_field(state_vector, t):
                                           vector_field_theta_2,   \
                                           vector_field_theta_3])
     
-    y_1_at_L_inertial = rot_matrix_1_at_L @ B_1_velocity_at_L.T @ coenergy_vector_1
-    y_2_at_0_inertial = rot_matrix_2_at_0 @ B_2_force_at_0.T @ coenergy_vector_2
-    y_2_at_L_inertial = rot_matrix_2_at_L @ B_2_force_at_L.T @ coenergy_vector_2
-    y_3_at_0_inertial = rot_matrix_3_at_0 @ B_3_velocity_at_0.T @ coenergy_vector_3
+    y_1_at_L_spatial = rot_matrix_1_at_L @ B_1_velocity_at_L.T @ coenergy_vector_1
+    y_2_at_0_spatial = rot_matrix_2_at_0 @ B_2_force_at_0.T @ coenergy_vector_2
+    y_2_at_L_spatial = rot_matrix_2_at_L @ B_2_force_at_L.T @ coenergy_vector_2
+    y_3_at_0_spatial = rot_matrix_3_at_0 @ B_3_velocity_at_0.T @ coenergy_vector_3
 
-    # u_1_at_L_inertial = + y_2_at_0_inertial 
-    # u_2_at_0_inertial = - y_1_at_L_inertial 
-    # u_2_at_L_inertial = - y_3_at_0_inertial 
-    # u_3_at_0_inertial = + y_2_at_L_inertial 
+    u_1_at_L_spatial = + y_2_at_0_spatial 
+    u_2_at_0_spatial = - y_1_at_L_spatial 
+    u_2_at_L_spatial = - y_3_at_0_spatial 
+    u_3_at_0_spatial = + y_2_at_L_spatial 
 
-    u_1_at_L_inertial = jnp.zeros(2)
-    u_2_at_0_inertial = jnp.zeros(2)
-    u_2_at_L_inertial = jnp.zeros(2) 
-    u_3_at_0_inertial = jnp.zeros(2)
+    # u_1_at_L_spatial = jnp.zeros(2)
+    # u_2_at_0_spatial = jnp.zeros(2)
+    # u_2_at_L_spatial = jnp.zeros(2) 
+    # u_3_at_0_spatial = jnp.zeros(2)
 
     gravity_vector_1 = jnp.zeros((beam_1.n_coenergy, ))
     f_vector_x_1 = assemble_state_dependent_forcing_vector_dg(beam_1.x_nodes,\
@@ -146,7 +146,7 @@ def vector_field(state_vector, t):
 
     vector_field_coenergy_1 = J_linear_matrix_1 @ coenergy_vector_1 \
         + beam_1.assemble_nonlinear_dynamics(coenergy_vector_1) \
-        + B_1_velocity_at_L @ rot_matrix_1_at_L.T @ u_1_at_L_inertial \
+        + B_1_velocity_at_L @ rot_matrix_1_at_L.T @ u_1_at_L_spatial \
         + gravity_vector_1 
     
     gravity_vector_2 = jnp.zeros((beam_2.n_coenergy, ))    
@@ -159,8 +159,8 @@ def vector_field(state_vector, t):
 
     vector_field_coenergy_2 = J_linear_matrix_2 @ coenergy_vector_2 \
         + beam_2.assemble_nonlinear_dynamics(coenergy_vector_2) \
-        + B_2_force_at_0 @ rot_matrix_2_at_0.T @ u_2_at_0_inertial \
-        + B_2_force_at_L @ rot_matrix_2_at_L.T @ u_2_at_L_inertial \
+        + B_2_force_at_0 @ rot_matrix_2_at_0.T @ u_2_at_0_spatial \
+        + B_2_force_at_L @ rot_matrix_2_at_L.T @ u_2_at_L_spatial \
         + gravity_vector_2 
 
     gravity_vector_3 = jnp.zeros((beam_3.n_coenergy, ))
@@ -173,11 +173,11 @@ def vector_field(state_vector, t):
 
     vector_field_coenergy_3 = J_linear_matrix_3 @ coenergy_vector_3 \
         + beam_3.assemble_nonlinear_dynamics(coenergy_vector_3) \
-        + B_3_velocity_at_0 @ rot_matrix_3_at_0.T @ u_3_at_0_inertial \
+        + B_3_velocity_at_0 @ rot_matrix_3_at_0.T @ u_3_at_0_spatial \
         + gravity_vector_3
     
-    vector_field_coenergy_2 = jnp.zeros(beam_2.n_coenergy)
-    vector_field_coenergy_3 = jnp.zeros(beam_3.n_coenergy)
+    # vector_field_coenergy_2 = jnp.zeros(beam_2.n_coenergy)
+    # vector_field_coenergy_3 = jnp.zeros(beam_3.n_coenergy)
 
     vector_field_coenergy = jnp.concatenate([vector_field_coenergy_1, \
                                             vector_field_coenergy_2,   \
@@ -250,79 +250,78 @@ norm_lin_velocity_sol = jnp.linalg.norm(lin_velocity_1_sol, axis=0)
 norm_theta_sol = jnp.linalg.norm(theta_1_sol, axis=0)
 
 
-plt.figure()
-plt.plot(time_vec, norm_position_sol)
-plt.xlabel('Time (s)')
-plt.ylabel(r'$||\mathbf{r}||$')
-plt.title(' Norm position vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"NormPosition.pdf", format="pdf")
+# plt.figure()
+# plt.plot(time_vec, norm_position_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel(r'$||\mathbf{r}||$')
+# plt.title(' Norm position vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"NormPosition.pdf", format="pdf")
 
-plt.figure()
-plt.plot(time_vec, norm_lin_velocity_sol)
-plt.xlabel('Time (s)')
-plt.ylabel(r'$||\mathbf{v}||$')
-plt.title(' Velocity position vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"NormVelocity.pdf", format="pdf")
-
-
-plt.figure()
-plt.plot(time_vec, norm_theta_sol)
-plt.xlabel('Time (s)')
-plt.ylabel(r'$||\theta||$')
-plt.title(' Norm Theta vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"NormTheta.pdf", format="pdf")
+# plt.figure()
+# plt.plot(time_vec, norm_lin_velocity_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel(r'$||\mathbf{v}||$')
+# plt.title(' Velocity position vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"NormVelocity.pdf", format="pdf")
 
 
-# # Plot of energy trend
-plt.figure()
-plt.plot(time_vec, energy_vec)
-plt.xlabel('Time (s)')
-plt.ylabel('Energy (J)')
-plt.title('Energy vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"Energies.pdf", format="pdf")
+# plt.figure()
+# plt.plot(time_vec, norm_theta_sol)
+# plt.xlabel('Time (s)')
+# plt.ylabel(r'$||\theta||$')
+# plt.title(' Norm Theta vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"NormTheta.pdf", format="pdf")
 
 
-# # Plot of energy trend
-plt.figure()
-plt.plot(time_vec, kinetic_energy_vec)
-plt.xlabel('Time (s)')
-plt.ylabel('Kinetic Energy (J)')
-plt.title('Kinetic Energy vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"Kin_Energies.pdf", format="pdf")
+# # # Plot of energy trend
+# plt.figure()
+# plt.plot(time_vec, energy_vec)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Energy (J)')
+# plt.title('Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 
 
-# # Plot of energy trend
-plt.figure()
-plt.plot(time_vec, deformation_energy_vec)
-plt.xlabel('Time (s)')
-plt.ylabel('Potential Energy (J)')
-plt.title('Potential Energy vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"Potential_Energies.pdf", format="pdf")
+# # # Plot of energy trend
+# plt.figure()
+# plt.plot(time_vec, kinetic_energy_vec)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Kinetic Energy (J)')
+# plt.title('Kinetic Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"Kin_Energies.pdf", format="pdf")
 
 
-# Plot of energy difference
-plt.figure()
-plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'r')
-plt.yscale('log')
-plt.xlabel('Time (s)')
-plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
-plt.title('Delta Energy vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
+# # # Plot of energy trend
+# plt.figure()
+# plt.plot(time_vec, deformation_energy_vec)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Potential Energy (J)')
+# plt.title('Potential Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"Potential_Energies.pdf", format="pdf")
 
+
+# # Plot of energy difference
+# plt.figure()
+# plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'r')
+# plt.yscale('log')
+# plt.xlabel('Time (s)')
+# plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+# plt.title('Delta Energy vs Time')
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
 
 
 
@@ -434,14 +433,14 @@ ax.set_ylim(-2.1, 1.5)
 fig.tight_layout()
 fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 
-# dual_animation = animate_overlay_beam_deformation(time_vec, 
-#                                                 [position_1_sol,
-#                                                 position_2_sol,
-#                                                 position_3_sol],
-#                                     title="Four bar mechanism",
-#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
-#                                     save_path=folder_results + f"Four_bar_mech.gif",
-#                                     x_lim=[-0.1, 4],
-#                                     y_lim=[-2.5, 1.5])
+dual_animation = animate_overlay_beam_deformation(time_vec, 
+                                                [position_1_sol,
+                                                position_2_sol,
+                                                position_3_sol],
+                                    title="Four bar mechanism",
+                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
+                                    save_path=folder_results + f"Four_bar_mech.gif",
+                                    x_lim=[-0.1, 4],
+                                    y_lim=[-2.5, 1.5])
 
 plt.show()

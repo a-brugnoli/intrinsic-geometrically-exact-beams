@@ -26,7 +26,6 @@ def compute_beam_positions(theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray
     position_sol = position_sol.at[0, :, 0].set(initial_position[:, 0])
     position_sol = position_sol.at[1, :, 0].set(initial_position[:, 1])
 
-    
 
     def integration_position(position_prev, ii):
 

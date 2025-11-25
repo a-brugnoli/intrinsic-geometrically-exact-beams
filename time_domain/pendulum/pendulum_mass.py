@@ -184,7 +184,8 @@ position_beam_sol = compute_beam_positions(theta_beam_sol, lin_velocity_sol, ini
 
 dual_animation = animate_overlay_beam_deformation(time_vec, [position_beam_sol, \
                                                   position_end_mass_sol.reshape(2, 1, -1)], \
-                                 labels=('Beam', 'Mass'))
+                                 labels=('Beam', 'Mass'),
+                                 save_path=folder_results + f"PendulumMass.gif")
 
 plt.show()
 
