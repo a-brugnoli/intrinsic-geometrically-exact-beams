@@ -433,14 +433,14 @@ ax.set_ylim(-2.1, 1.5)
 fig.tight_layout()
 fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 
-dual_animation = animate_overlay_beam_deformation(time_vec, 
-                                                [position_1_sol,
-                                                position_2_sol,
-                                                position_3_sol],
-                                    title="Four bar mechanism",
-                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
-                                    save_path=folder_results + f"Four_bar_mech.gif",
-                                    x_lim=[-0.1, 4],
-                                    y_lim=[-2.5, 1.5])
+# dual_animation = animate_overlay_beam_deformation(time_vec, 
+#                                                 [position_1_sol,
+#                                                 position_2_sol,
+#                                                 position_3_sol],
+#                                     title="Four bar mechanism",
+#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
+#                                     save_path=folder_results + f"Four_bar_mech.gif",
+#                                     x_lim=[-0.1, 4],
+#                                     y_lim=[-2.5, 1.5])
 
 plt.show()
