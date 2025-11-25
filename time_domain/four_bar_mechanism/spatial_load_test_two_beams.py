@@ -21,7 +21,7 @@ from jax import config; config.update("jax_enable_x64", True)
 
 # Setup output directory
 path_file = os.path.dirname(os.path.abspath(__file__))
-folder_results = path_file + "/results/"
+folder_results = path_file + "/results/spatial_load_test/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
@@ -151,14 +151,14 @@ coenergy_sol_pinned = trajectory_pinned[pinned_beam.n_ang_vel:, ::step_plot]
 energy_vec_pinned, kinetic_energy_vec_pinned, deformation_energy_vec_pinned = \
     pinned_beam.compute_energies(coenergy_sol_pinned)
 
-angle_0_free = theta_0 * jnp.ones(free_beam.n_ang_vel)
-coenergy_vector_0_free = jnp.zeros(free_beam.n_coenergy)
-lagrange_multiplier_0 = jnp.zeros(n_lambda)
-state_vector_0_free = jnp.concatenate([angle_0_free, coenergy_vector_0_free, lagrange_multiplier_0])
+# angle_0_free = theta_0 * jnp.ones(free_beam.n_ang_vel)
+# coenergy_vector_0_free = jnp.zeros(free_beam.n_coenergy)
+# lagrange_multiplier_0 = jnp.zeros(n_lambda)
+# state_vector_0_free = jnp.concatenate([angle_0_free, coenergy_vector_0_free, lagrange_multiplier_0])
 
-# Run simulation for free beam
-E_matrix_free = jax.scipy.linalg.block_diag(jnp.eye(free_beam.n_ang_vel), \
-                                            H_matrix_free, jnp.zeros((n_lambda, n_lambda)))
+# # Run simulation for free beam
+# E_matrix_free = jax.scipy.linalg.block_diag(jnp.eye(free_beam.n_ang_vel), \
+#                                             H_matrix_free, jnp.zeros((n_lambda, n_lambda)))
 
 # trajectory_free = simulate(state_vector_0_free, dt, n_steps, E_matrix_free, vector_field_free)
 
