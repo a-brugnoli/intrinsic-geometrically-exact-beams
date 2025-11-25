@@ -3,15 +3,19 @@ from jax import config; config.update("jax_enable_x64", True)
 
 T_end = 10
 
-# dt = 0.005
-# E_2 = 2.1e8
+dt = 0.005
+E_2 = 2.1e8
 
-dt = 0.01
-E_2 = 2.1e11
+# dt = 0.02
+# E_2 = 2.1e11
 
-n_elem_1 = 10
-n_elem_2 = 6
-n_elem_3 = 6
+# n_elem_1 = 10
+# n_elem_2 = 6
+# n_elem_3 = 6
+
+n_elem_1 = 20
+n_elem_2 = 20
+n_elem_3 = 20
 
 # Beam and material parameters
 L_1 = jnp.sqrt(5)

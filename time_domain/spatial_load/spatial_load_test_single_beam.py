@@ -1,8 +1,7 @@
 from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
-
-from data import geometrical_props, material_props, \
-    A, rho, g, theta_0, dt, T_end, n_elem
+from src.material_data.steel import material_properties, geometrical_properties, rho, A
+ 
 import jax.numpy as jnp
 import jax
 from src.time_integration.utilities import simulate
@@ -25,22 +24,16 @@ folder_results = path_file + "/results/spatial_load_test/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
-pinned_beam = IntrinsicPlanarPinnedBeam(n_elem, geometrical_props, material_props)
+n_elem = 20
+g = 9.81  # m/s^2
+theta_0 = 0.0  # initial angle
+T_end = 10.0
+dt = 0.01
+pinned_beam = IntrinsicPlanarPinnedBeam(n_elem, geometrical_properties, 
+                                        material_properties)
+
 H_matrix_pinned = pinned_beam.assemble_energy_matrix()
 J_linear_matrix_pinned = pinned_beam.assemble_linear_interconnection_matrix()
-
-
-free_beam = IntrinsicPlanarFreeBeam(n_elem, geometrical_props, material_props)
-H_matrix_free = free_beam.assemble_energy_matrix()
-J_linear_matrix_free = free_beam.assemble_linear_interconnection_matrix()
-B_matrix_free = free_beam.assemble_control_matrix()
-B_free_at_0 = B_matrix_free[:, :3]
-B_free_force_at_0 = B_free_at_0[:, :2]
-B_free_at_L = B_matrix_free[:, 3:]
-B_free_force_at_L = B_free_at_L[:, :2]
-
-# Simply supported Bcs
-n_lambda = 4
 
 jax.jit
 def spatial_force(t):

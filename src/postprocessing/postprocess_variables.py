@@ -5,6 +5,14 @@ from src.rotations.utilities import rotation_matrix_2d_batch
 @jax.jit
 def compute_beam_positions(theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
                         initial_position: jnp.ndarray, time_sol: jnp.ndarray):
+    # Assert that temporal dimensions match
+
+    # jax.debug.print("Shape lin velocity sol: {shape}", shape=lin_velocity_sol.shape)
+    # jax.debug.print("Shape theta sol: {shape}", shape=theta_sol.shape)  
+    # jax.debug.print("Shape time sol: {shape}", shape=time_sol.shape)
+    
+    assert theta_sol.shape[-1] == lin_velocity_sol.shape[-1] and theta_sol.shape[-1]==time_sol.shape[0], \
+        f"Temporal dimension mismatch: theta_sol.shape[-1]={theta_sol.shape[-1]} != lin_velocity_sol.shape[-1]={lin_velocity_sol.shape[-1]}"
     
     dt_vec = time_sol[1:] - time_sol[:-1]
     n_steps = time_sol.shape[0] - 1

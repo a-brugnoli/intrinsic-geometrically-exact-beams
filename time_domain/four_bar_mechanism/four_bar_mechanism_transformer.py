@@ -7,7 +7,8 @@ from data import material_props, material_props_2, \
     g, A, rho, dt, T_end
 import jax.numpy as jnp
 import jax
-from src.time_integration.utilities import simulate, compute_lambda0
+from src.time_integration.utilities import simulate, \
+        simulate_exact_constraints, compute_lambda0
 from src.rotations.utilities import rotation_matrix_2d
 from src.fem.forcing import assemble_state_dependent_forcing_vector_cg
 import matplotlib.pyplot as plt
@@ -62,12 +63,12 @@ B_3_force_at_L = B_matrix_3_at_L[:, :2]
 # Overall matrices
 n_lambda = 8
 H_matrix = jax.scipy.linalg.block_diag(H_matrix_1, H_matrix_2, H_matrix_3)
-A_matrix = jax.scipy.linalg.block_diag(jnp.eye(beam_1.n_ang_vel), 
+IH_matrix = jax.scipy.linalg.block_diag(jnp.eye(beam_1.n_ang_vel), 
                                        jnp.eye(beam_2.n_ang_vel), 
                                        jnp.eye(beam_3.n_ang_vel), 
                                        H_matrix)
 
-E_matrix = jax.scipy.linalg.block_diag(A_matrix,
+E_matrix = jax.scipy.linalg.block_diag(IH_matrix,
                                        jnp.zeros((n_lambda, n_lambda)))
 
 ind_theta_2 = beam_1.n_ang_vel
@@ -79,7 +80,6 @@ ind_coenergy_3 = ind_coenergy_2 + beam_2.n_coenergy
 ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
 
 
-
 jax.jit
 def gravity_force(t):
     return jnp.array([0, -g*rho*A])
@@ -88,10 +88,12 @@ def gravity_force(t):
     #                  jnp.array([0, -t/t_end_loading*g*rho*A]), 
     #                  jnp.array([0, -g*rho*A]))
 
+
 jax.jit
 def exp_f_material_x(t):
     return lambda angle: + jnp.cos(angle) * gravity_force(t)[0] \
                          + jnp.sin(angle) * gravity_force(t)[1]
+
 jax.jit
 def exp_f_material_y(t):
     return lambda angle: - jnp.sin(angle) * gravity_force(t)[0] \
@@ -114,26 +116,15 @@ def assemble_gravity_vector(index_beam, theta_vec):
 
 
 jax.jit
-def vector_field_decomposed(x_vector, t):
+def dynamics_vector_field(x_vector, t):
     """
-    Given the dynamics H xdot = f(x) + G(x)lambda
-    Compute f(x), G(x) separately
+    Given the dynamics A xdot = f(x) + G(x)lambda
+    Computes f(x)
     """
-    # state_vector does not include multiplier
     theta_vector_1 = x_vector[:beam_1.n_ang_vel]
-    theta_1_at_L = theta_vector_1[-1]
-    rot_matrix_1_at_L = rotation_matrix_2d(theta_1_at_L)
-
     theta_vector_2 = x_vector[ind_theta_2:ind_theta_2 + beam_2.n_ang_vel]
-    theta_2_at_0 = theta_vector_2[0]
-    rot_matrix_2_at_0 = rotation_matrix_2d(theta_2_at_0)
-    theta_2_at_L = theta_vector_2[-1]
-    rot_matrix_2_at_L = rotation_matrix_2d(theta_2_at_L)
-
     theta_vector_3 = x_vector[ind_theta_3:ind_theta_3 + beam_3.n_ang_vel]
-    theta_3_at_0 = theta_vector_3[0]
-    rot_matrix_3_at_0 = rotation_matrix_2d(theta_3_at_0)
-
+    
     coenergy_vector_1 = x_vector[ind_coenergy_1:ind_coenergy_2]
     coenergy_vector_2 = x_vector[ind_coenergy_2:ind_coenergy_3]
     coenergy_vector_3 = x_vector[ind_coenergy_3:ind_coenergy_end]
@@ -154,23 +145,13 @@ def vector_field_decomposed(x_vector, t):
         + beam_1.assemble_nonlinear_dynamics(coenergy_vector_1) \
         + gravity_vector_1 
     
-    G_matrix_1 = jnp.hstack([B_1_force_at_0, 
-                            B_1_force_at_L @ rot_matrix_1_at_L.T]) 
-    
     dynamics_coenergy_2 = J_linear_matrix_2 @ coenergy_vector_2 \
         + beam_2.assemble_nonlinear_dynamics(coenergy_vector_2) \
         + gravity_vector_2 
     
-    G_matrix_2 = jnp.hstack([-B_2_force_at_0 @ rot_matrix_2_at_0.T,
-                             -B_2_force_at_L @ rot_matrix_2_at_L.T])
-
     dynamics_coenergy_3 = J_linear_matrix_3 @ coenergy_vector_3 \
         + beam_3.assemble_nonlinear_dynamics(coenergy_vector_3) \
         + gravity_vector_3
-    
-    G_matrix_3 = jnp.hstack([B_3_force_at_0 @ rot_matrix_3_at_0.T,
-                            B_3_force_at_L])
-        
     
     dynamics_coenergy = jnp.concatenate([dynamics_coenergy_1, \
                                          dynamics_coenergy_2, \
@@ -178,21 +159,57 @@ def vector_field_decomposed(x_vector, t):
     
     dynamics = jnp.concatenate([vector_field_theta, dynamics_coenergy])
     
-    G_matrix = jnp.zeros((len(dynamics), n_lambda))
+    return dynamics
+
+
+jax.jit
+def constraints_matrix(x_vector, t):
+    """
+    Given the dynamics A xdot = f(x) + G(x)lambda
+    Computes G(x)
+    """
+
+    theta_vector_1 = x_vector[:beam_1.n_ang_vel]
+    theta_vector_2 = x_vector[ind_theta_2:ind_theta_2 + beam_2.n_ang_vel]
+    theta_vector_3 = x_vector[ind_theta_3:ind_theta_3 + beam_3.n_ang_vel]
+
+    theta_1_at_L = theta_vector_1[-1]
+    rot_matrix_1_at_L = rotation_matrix_2d(theta_1_at_L)
+
+    theta_2_at_0 = theta_vector_2[0]
+    rot_matrix_2_at_0 = rotation_matrix_2d(theta_2_at_0)
+    theta_2_at_L = theta_vector_2[-1]
+    rot_matrix_2_at_L = rotation_matrix_2d(theta_2_at_L)
+
+    theta_3_at_0 = theta_vector_3[0]
+    rot_matrix_3_at_0 = rotation_matrix_2d(theta_3_at_0)
+
+    G_matrix_1 = jnp.hstack([B_1_force_at_0, 
+                            B_1_force_at_L @ rot_matrix_1_at_L.T]) 
+    
+    G_matrix_2 = jnp.hstack([-B_2_force_at_0 @ rot_matrix_2_at_0.T,
+                             -B_2_force_at_L @ rot_matrix_2_at_L.T])
+
+    G_matrix_3 = jnp.hstack([B_3_force_at_0 @ rot_matrix_3_at_0.T,
+                            B_3_force_at_L])
+        
+    G_matrix = jnp.zeros((len(x_vector), n_lambda))
     G_matrix = G_matrix.at[ind_coenergy_1:ind_coenergy_2, :4].set(G_matrix_1)
     G_matrix = G_matrix.at[ind_coenergy_2:ind_coenergy_3, 2:6].set(G_matrix_2)
     G_matrix = G_matrix.at[ind_coenergy_3:ind_coenergy_end, 4:8].set(G_matrix_3)
 
-    return dynamics, G_matrix
+    return  G_matrix
+
 
 def vector_field(state_vector, t):
     x_vec = state_vector[:ind_coenergy_end]
     lambda_vec = state_vector[ind_coenergy_end:]
 
-    f, G = vector_field_decomposed(x_vec, t)
+    f = dynamics_vector_field(x_vec, t)
+    G = constraints_matrix(x_vec, t)
 
     vector_field_state = f + G @ lambda_vec
-    constraints = G.T @ x_vec
+    constraints = -G.T @ x_vec
 
     return jnp.concatenate([vector_field_state, constraints])
 
@@ -201,26 +218,32 @@ angle_beam_1_0 = theta_1_0 * jnp.ones(beam_1.n_ang_vel)
 angle_beam_2_0 = theta_2_0 * jnp.ones(beam_2.n_ang_vel)
 angle_beam_3_0 = theta_3_0 * jnp.ones(beam_3.n_ang_vel)
 
+angle_vector_0 = jnp.concatenate([angle_beam_1_0, 
+                                  angle_beam_2_0,
+                                  angle_beam_3_0])
+
 coenergy_vector_beam_1_0 = jnp.zeros(beam_1.n_coenergy)
 coenergy_vector_beam_2_0 = jnp.zeros(beam_2.n_coenergy)
 coenergy_vector_beam_3_0 = jnp.zeros(beam_3.n_coenergy)
 
-x_0 = jnp.concatenate([angle_beam_1_0, 
-                    angle_beam_2_0,
-                    angle_beam_3_0,
-                    coenergy_vector_beam_1_0,
-                    coenergy_vector_beam_2_0,
-                    coenergy_vector_beam_3_0])
+coenergy_vector_0 = jnp.concatenate([coenergy_vector_beam_1_0, 
+                                     coenergy_vector_beam_2_0,
+                                     coenergy_vector_beam_3_0])
 
-lambda_0 =  compute_lambda0(A_matrix, vector_field_decomposed, x_0)
+x_0 = jnp.concatenate([angle_vector_0,
+                       coenergy_vector_0])
 
-
-state_vector_0 = jnp.concatenate([x_0,
-                                  lambda_0])
+lambda_0 =  compute_lambda0(IH_matrix, dynamics_vector_field, constraints_matrix, x_0)
 
 n_steps = int(T_end/dt)
 time_vec_all = dt * jnp.arange(n_steps + 1)
-trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field)
+
+# state_vector_0 = jnp.concatenate([x_0,
+#                                   lambda_0])
+# trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field)
+
+trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
+             IH_matrix, dynamics_vector_field, constraints_matrix)
 
 n_plot = 500
 if n_plot<n_steps:
@@ -256,7 +279,7 @@ x_points_2_t0 = x_B + beam_2.x_nodes * jnp.cos(theta_2_sol[:, 0])
 y_points_2_t0 = y_B + beam_2.x_nodes * jnp.sin(theta_2_sol[:, 0])
 
 positions_2_t0 = jnp.stack([x_points_2_t0,
-                                y_points_2_t0], axis=1)
+                            y_points_2_t0], axis=1)
 
 position_2_sol = compute_beam_positions(theta_2_sol, 
                                         lin_velocity_2_sol, 
@@ -357,15 +380,15 @@ ax.set_ylim(-2.1, 1.5)
 fig.tight_layout()
 fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 
-# animation = animate_overlay_beam_deformation(time_vec, 
-#                                                 [position_1_sol,
-#                                                 position_2_sol,
-#                                                 position_3_sol],
-#                                     title="Four bar mechanism",
-#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
-#                                     save_path=folder_results + f"Four_bar_mech.gif",
-#                                     x_lim=[-0.1, 4],
-#                                     y_lim=[-2.5, 1.5])
+animation = animate_overlay_beam_deformation(time_vec, 
+                                                [position_1_sol,
+                                                position_2_sol,
+                                                position_3_sol],
+                                    title="Four bar mechanism",
+                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
+                                    save_path=folder_results + f"Four_bar_mech.gif",
+                                    x_lim=[-0.1, 4],
+                                    y_lim=[-2.5, 1.5])
 
 
 plt.show()

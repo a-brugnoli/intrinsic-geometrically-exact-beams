@@ -9,14 +9,14 @@ A = b * h            # Cross-sectional area (m²)
 I = b * h**3 / 12    # Second moment of area (m^4)
 kappa = 5/6          # Shear correction factor
 
-geometrical_props = {
+geometrical_properties = {
     'L': length,   # Length of the beam
     'A': A,  # Cross-sectional area
     'I': I,  # Second moment of area of the beam
     'k': kappa,   # Shear coefficient for rectungular cross-section
 }
 
-material_props = {
+material_properties = {
     'E': E,  # Young's modulus
     'G': G,  # Shear modulus 
     'rho': rho,  # Density

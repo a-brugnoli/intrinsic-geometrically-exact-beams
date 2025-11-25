@@ -89,7 +89,6 @@ def exp_f_material_y(t):
     return lambda angle: - jnp.sin(angle) * gravity_force(t)[0] \
                          + jnp.cos(angle) * gravity_force(t)[1]   
 
-
 jax.jit
 def vector_field(state_vector, t):
     theta_vector_1 = state_vector[:beam_1.n_ang_vel]
@@ -129,10 +128,10 @@ def vector_field(state_vector, t):
     u_2_at_L_spatial = - y_3_at_0_spatial 
     u_3_at_0_spatial = + y_2_at_L_spatial 
 
-    # u_1_at_L_spatial = jnp.zeros(2)
-    # u_2_at_0_spatial = jnp.zeros(2)
-    # u_2_at_L_spatial = jnp.zeros(2) 
-    # u_3_at_0_spatial = jnp.zeros(2)
+    u_1_at_L_spatial = jnp.zeros(2)
+    u_2_at_0_spatial = jnp.zeros(2)
+    u_2_at_L_spatial = jnp.zeros(2) 
+    u_3_at_0_spatial = jnp.zeros(2)
 
     gravity_vector_1 = jnp.zeros((beam_1.n_coenergy, ))
     f_vector_x_1 = assemble_state_dependent_forcing_vector_dg(beam_1.x_nodes,\
@@ -149,35 +148,35 @@ def vector_field(state_vector, t):
         + B_1_velocity_at_L @ rot_matrix_1_at_L.T @ u_1_at_L_spatial \
         + gravity_vector_1 
     
-    gravity_vector_2 = jnp.zeros((beam_2.n_coenergy, ))    
-    f_vector_x_2 = assemble_state_dependent_forcing_vector_cg(beam_2.x_nodes,\
-                                                            theta_vector_2, exp_f_material_x(t))    
-    f_vector_y_2 = assemble_state_dependent_forcing_vector_cg(beam_2.x_nodes,\
-                                                            theta_vector_2, exp_f_material_y(t))
-    gravity_vector_2 = gravity_vector_2.at[:beam_2.n_lin_vel_x].set(f_vector_x_2)
-    gravity_vector_2 = gravity_vector_2.at[beam_2.n_lin_vel_x:beam_2.n_lin_vel].set(f_vector_y_2)
+    # gravity_vector_2 = jnp.zeros((beam_2.n_coenergy, ))    
+    # f_vector_x_2 = assemble_state_dependent_forcing_vector_cg(beam_2.x_nodes,\
+    #                                                         theta_vector_2, exp_f_material_x(t))    
+    # f_vector_y_2 = assemble_state_dependent_forcing_vector_cg(beam_2.x_nodes,\
+    #                                                         theta_vector_2, exp_f_material_y(t))
+    # gravity_vector_2 = gravity_vector_2.at[:beam_2.n_lin_vel_x].set(f_vector_x_2)
+    # gravity_vector_2 = gravity_vector_2.at[beam_2.n_lin_vel_x:beam_2.n_lin_vel].set(f_vector_y_2)
 
-    vector_field_coenergy_2 = J_linear_matrix_2 @ coenergy_vector_2 \
-        + beam_2.assemble_nonlinear_dynamics(coenergy_vector_2) \
-        + B_2_force_at_0 @ rot_matrix_2_at_0.T @ u_2_at_0_spatial \
-        + B_2_force_at_L @ rot_matrix_2_at_L.T @ u_2_at_L_spatial \
-        + gravity_vector_2 
+    # vector_field_coenergy_2 = J_linear_matrix_2 @ coenergy_vector_2 \
+    #     + beam_2.assemble_nonlinear_dynamics(coenergy_vector_2) \
+    #     + B_2_force_at_0 @ rot_matrix_2_at_0.T @ u_2_at_0_spatial \
+    #     + B_2_force_at_L @ rot_matrix_2_at_L.T @ u_2_at_L_spatial \
+    #     + gravity_vector_2 
 
-    gravity_vector_3 = jnp.zeros((beam_3.n_coenergy, ))
-    f_vector_x_3 = assemble_state_dependent_forcing_vector_dg(beam_3.x_nodes,\
-                                                            theta_vector_3, exp_f_material_x(t))    
-    f_vector_y_3 = assemble_state_dependent_forcing_vector_dg(beam_3.x_nodes,\
-                                                            theta_vector_3, exp_f_material_y(t))
-    gravity_vector_3 = gravity_vector_3.at[:beam_3.n_lin_vel_x].set(f_vector_x_3)
-    gravity_vector_3 = gravity_vector_3.at[beam_3.n_lin_vel_x:beam_3.n_lin_vel].set(f_vector_y_3)
+    # gravity_vector_3 = jnp.zeros((beam_3.n_coenergy, ))
+    # f_vector_x_3 = assemble_state_dependent_forcing_vector_dg(beam_3.x_nodes,\
+    #                                                         theta_vector_3, exp_f_material_x(t))    
+    # f_vector_y_3 = assemble_state_dependent_forcing_vector_dg(beam_3.x_nodes,\
+    #                                                         theta_vector_3, exp_f_material_y(t))
+    # gravity_vector_3 = gravity_vector_3.at[:beam_3.n_lin_vel_x].set(f_vector_x_3)
+    # gravity_vector_3 = gravity_vector_3.at[beam_3.n_lin_vel_x:beam_3.n_lin_vel].set(f_vector_y_3)
 
-    vector_field_coenergy_3 = J_linear_matrix_3 @ coenergy_vector_3 \
-        + beam_3.assemble_nonlinear_dynamics(coenergy_vector_3) \
-        + B_3_velocity_at_0 @ rot_matrix_3_at_0.T @ u_3_at_0_spatial \
-        + gravity_vector_3
+    # vector_field_coenergy_3 = J_linear_matrix_3 @ coenergy_vector_3 \
+    #     + beam_3.assemble_nonlinear_dynamics(coenergy_vector_3) \
+    #     + B_3_velocity_at_0 @ rot_matrix_3_at_0.T @ u_3_at_0_spatial \
+    #     + gravity_vector_3
     
-    # vector_field_coenergy_2 = jnp.zeros(beam_2.n_coenergy)
-    # vector_field_coenergy_3 = jnp.zeros(beam_3.n_coenergy)
+    vector_field_coenergy_2 = jnp.zeros(beam_2.n_coenergy)
+    vector_field_coenergy_3 = jnp.zeros(beam_3.n_coenergy)
 
     vector_field_coenergy = jnp.concatenate([vector_field_coenergy_1, \
                                             vector_field_coenergy_2,   \
