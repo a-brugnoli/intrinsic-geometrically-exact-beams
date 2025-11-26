@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
+from src.postprocessing.potential_energy import compute_potential_energy_nodes, \
+    compute_potential_energy_midpoints
 from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
@@ -19,7 +21,7 @@ from jax import config; config.update("jax_enable_x64", True)
 
 # Setup output directory
 path_file = os.path.dirname(os.path.abspath(__file__))
-folder_results = path_file + "/results/spatial_load_test/"
+folder_results = path_file + "/results_two_beam_test/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
@@ -48,12 +50,11 @@ n_lambda = 4
 
 jax.jit
 def spatial_force(t):
-    return jnp.array([0, -g*rho*A])
-
-    # t_end_loading = 10*dt
-    # return jnp.where(t <= t_end_loading, 
-    #                  jnp.array([0, -t/t_end_loading*g*rho*A]), 
-    #                  jnp.array([0, -g*rho*A]))
+    # return jnp.array([0, -g*rho*A])
+    t_end_loading = 10*dt
+    return jnp.where(t <= t_end_loading, 
+                     jnp.array([0, -t/t_end_loading*g*rho*A]), 
+                     jnp.array([0, -g*rho*A]))
 
 
 # Simbolic expression to be converted into a distributed force
@@ -67,7 +68,7 @@ def exp_f_material_y(t):
 
 
 jax.jit
-def vector_field_pinned(state_vector, t):
+def vector_field_pinned(t, state_vector):
     theta_vector = state_vector[:pinned_beam.n_ang_vel]
     coenergy_vector = state_vector[pinned_beam.n_ang_vel:]
 
@@ -95,7 +96,7 @@ def vector_field_pinned(state_vector, t):
 
 
 jax.jit
-def vector_field_free(state_vector, t):
+def vector_field_free(t, state_vector):
     theta_vector = state_vector[:free_beam.n_ang_vel]
     coenergy_vector = state_vector[free_beam.n_ang_vel:-n_lambda]
     lagrange_multiplier = state_vector[-n_lambda:]
@@ -151,9 +152,6 @@ time_vec = time_vec_all[::step_plot]
 theta_sol_pinned = trajectory_pinned[:pinned_beam.n_ang_vel, ::step_plot]
 coenergy_sol_pinned = trajectory_pinned[pinned_beam.n_ang_vel:, ::step_plot]
 
-energy_vec_pinned, kinetic_energy_vec_pinned, deformation_energy_vec_pinned = \
-    pinned_beam.compute_energies(coenergy_sol_pinned)
-
 angle_0_free = theta_0 * jnp.ones(free_beam.n_ang_vel)
 coenergy_vector_0_free = jnp.zeros(free_beam.n_coenergy)
 lagrange_multiplier_0 = jnp.zeros(n_lambda)
@@ -168,9 +166,6 @@ trajectory_free = simulate(state_vector_0_free, dt, n_steps, E_matrix_free, vect
 theta_sol_free = trajectory_free[:free_beam.n_ang_vel, ::step_plot]
 coenergy_sol_free = trajectory_free[free_beam.n_ang_vel:-n_lambda, ::step_plot]
 lagrange_sol_free = trajectory_free[-n_lambda:, ::step_plot]
-
-energy_vec_free, kinetic_energy_vec_free, deformation_energy_vec_free = \
-    free_beam.compute_energies(coenergy_sol_free)
 
 x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_sol_pinned[:, 0])
 y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_sol_pinned[:, 0])
@@ -191,6 +186,66 @@ initial_position_free = jnp.stack([x_points_free_0,
 
 lin_velocity_sol_free = coenergy_sol_free[:free_beam.n_lin_vel, :]
 position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
+
+
+intrinsic_energy_vec_pinned, kinetic_energy_vec_pinned, deformation_energy_vec_pinned = \
+    pinned_beam.compute_energies(coenergy_sol_pinned)
+potential_energy_vec_pinned = compute_potential_energy_midpoints(position_sol_pinned, pinned_beam.x_nodes, rho, A)
+total_energy_vec_pinned = intrinsic_energy_vec_pinned + potential_energy_vec_pinned
+
+
+intrinsic_energy_vec_free, kinetic_energy_vec_free, deformation_energy_vec_free = \
+    pinned_beam.compute_energies(coenergy_sol_free)
+potential_energy_vec_free = compute_potential_energy_nodes(position_sol_free, pinned_beam.x_nodes, rho, A)
+total_energy_vec_free = intrinsic_energy_vec_free\
+                        + potential_energy_vec_free
+
+# # Plot of energy trend
+plt.figure()
+plt.plot(time_vec, intrinsic_energy_vec_pinned, 'b--', label='Intrinsic Energy')
+plt.plot(time_vec, potential_energy_vec_pinned, 'r-', label='Potential Energy')
+plt.plot(time_vec, total_energy_vec_pinned, 'k', label='Total Energy')
+plt.xlabel('Time (s)')
+plt.title('Energies Pinned Beam vs Time')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig(folder_results + f"Energies.pdf", format="pdf")
+
+# Plot of energy difference
+plt.figure()
+plt.plot(time_vec[1:], jnp.abs(jnp.diff(total_energy_vec_free)), 'r')
+plt.yscale('log')
+plt.xlabel('Time (s)')
+plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+plt.title('Delta Energy Pinned Beam vs Time')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
+
+# # Plot of energy trend
+plt.figure()
+plt.plot(time_vec, intrinsic_energy_vec_free, 'b--', label='Intrinsic Energy')
+plt.plot(time_vec, potential_energy_vec_free, 'r-', label='Potential Energy')
+plt.plot(time_vec, total_energy_vec_free, 'k', label='Total Energy')
+plt.xlabel('Time (s)')
+plt.title('Energies Free Beam vs Time')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig(folder_results + f"Energies.pdf", format="pdf")
+
+# Plot of energy difference
+plt.figure()
+plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec_free)), 'r')
+plt.yscale('log')
+plt.xlabel('Time (s)')
+plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+plt.title('Delta Energy Free Beam vs Time')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
+
 
 time_instants = jnp.array([j*2 for j in range(6)])
 time_indices = [j for j in range(len(time_vec)) if time_vec[j] in time_instants]
@@ -237,77 +292,25 @@ cbar_2 = fig.colorbar(lc_2, cax=cax)
 
 cbar_1.set_label('$t$')
 cbar_2.set_label('$t$')
-
-ax.set_xlim(-0.1, 3.5)
-ax.set_ylim(-2.1, 1.5)
-
+x_min = min(jnp.min(position_sol_pinned[0, :, :]), jnp.min(position_sol_free[0, :, :]))
+x_max = max(jnp.max(position_sol_pinned[0, :, :]), jnp.max(position_sol_free[0, :, :]))
+y_min = min(jnp.min(position_sol_pinned[1, :, :]), jnp.min(position_sol_free[1, :, :]))
+y_max = max(jnp.max(position_sol_pinned[1, :, :]), jnp.max(position_sol_free[1, :, :]))
+ax.set_xlim(x_min, x_max)
+ax.set_ylim(y_min, y_max)
 fig.tight_layout()
 fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 
-# # Create and display animation
-# from src.postprocessing.animate import animate_overlay_beam_deformation
-# print("Creating animation...")
-# anim = animate_overlay_beam_deformation(
-#     time_vec, [position_sol_pinned, position_sol_free],
-#     fps=20, interval=100,
-#     title="Comparison: Clamped Beam under distributed Load",
-#     colors=('blue', 'red'),
-#     labels=('Pinned', 'Free'),
-#     save_path=folder_results + f"Pinned_vs_Free.gif"
-# )
+# Create and display animation
+from src.postprocessing.animate import animate_overlay_beam_deformation
+print("Creating animation...")
+anim = animate_overlay_beam_deformation(
+    time_vec, [position_sol_pinned, position_sol_free],
+    fps=20, interval=100,
+    title="Comparison: Clamped Beam under distributed Load",
+    colors=('blue', 'red'),
+    labels=('Pinned', 'Free'),
+    save_path=folder_results + f"Pinned_vs_Free.gif"
+)
 
 plt.show()
-
-
-# # # Plot of energy trend
-# plt.figure()
-# plt.plot(dt* jnp.arange(n_steps+1), energy_vec_pinned, label='H CC')
-# plt.plot(dt* jnp.arange(n_steps+1), energy_vec_free, label='H FF')
-# plt.xlabel('Time (s)')
-# plt.ylabel('Energy (J)')
-# plt.title('Energy vs Time')
-# plt.grid(True)
-# plt.legend(loc="lower right")
-# plt.tight_layout()
-# plt.savefig(folder_results + f"Energies.pdf", format="pdf")
-
-
-# # # Plot of energy trend
-# plt.figure()
-# plt.plot(dt* jnp.arange(n_steps+1), kinetic_energy_vec_pinned, label='T CC')
-# plt.plot(dt* jnp.arange(n_steps+1), kinetic_energy_vec_free, label='T FF')
-# plt.xlabel('Time (s)')
-# plt.ylabel('Kinetic Energy (J)')
-# plt.title('Kinetic Energy vs Time')
-# plt.grid(True)
-# plt.legend(loc="lower right")
-# plt.tight_layout()
-# plt.savefig(folder_results + f"Kin_Energies.pdf", format="pdf")
-
-
-# # # Plot of energy trend
-# plt.figure()
-# plt.plot(dt* jnp.arange(n_steps+1), deformation_energy_vec_pinned, label='V CC')
-# plt.plot(dt* jnp.arange(n_steps+1), deformation_energy_vec_free, label='V FF')
-# plt.xlabel('Time (s)')
-# plt.ylabel('Potential Energy (J)')
-# plt.title('Potential Energy vs Time')
-# plt.grid(True)
-# plt.legend(loc="lower right")
-# plt.tight_layout()
-# plt.savefig(folder_results + f"Potential_Energies.pdf", format="pdf")
-
-
-# # Plot of energy difference
-# plt.figure()
-# plt.plot(dt* jnp.arange(n_steps), jnp.abs(jnp.diff(energy_vec_pinned)), 'r', label='CC')
-# plt.plot(dt* jnp.arange(n_steps), jnp.abs(jnp.diff(energy_vec_free)), 'b', label='FF')
-# plt.yscale('log')
-# plt.xlabel('Time (s)')
-# plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
-# plt.title('Delta Energy vs Time')
-# plt.grid(True)
-# plt.legend(loc="upper right")
-# plt.tight_layout()
-# plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
-

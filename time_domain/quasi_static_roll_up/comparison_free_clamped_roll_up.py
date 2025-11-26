@@ -45,7 +45,7 @@ n_lambda_clamped = B_matrix_clamped_at_L.shape[1]
 
 
 jax.jit
-def vector_field_clamped(state_vector, t):
+def vector_field_clamped(t, state_vector):
     theta_vector = state_vector[:clamped_beam.n_ang_vel]
     coenergy_vector = state_vector[clamped_beam.n_ang_vel:-n_lambda_clamped]
     lagrange_multiplier = state_vector[-n_lambda_clamped:]
@@ -97,7 +97,7 @@ B_torque_free_at_L = free_beam.assemble_control_matrix()[:, -1]
 
 
 jax.jit
-def vector_field_free(state_vector, t):
+def vector_field_free(t, state_vector):
     theta_vector = state_vector[:free_beam.n_ang_vel]
     coenergy_vector = state_vector[free_beam.n_ang_vel:-n_lambda_free]
     lagrange_multiplier = state_vector[-n_lambda_free:]

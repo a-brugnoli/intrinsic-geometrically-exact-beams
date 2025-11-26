@@ -6,7 +6,7 @@ from data import material_props, material_props_2, \
     point_A_0, point_B_0, point_C_0, \
     g, A, rho, dt, T_end
 import jax.numpy as jnp
-import jax
+import jax, diffrax, os
 from src.time_integration.utilities import simulate, \
         simulate_exact_constraints, compute_lambda0
 from src.rotations.utilities import rotation_matrix_2d
@@ -15,11 +15,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
+from src.postprocessing.potential_energy import compute_potential_energy_nodes
 from src.postprocessing.animate import animate_overlay_beam_deformation
 from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
-import os
 path_file = os.path.dirname(os.path.abspath(__file__))
 
 E_2 = material_props_2['E']
@@ -83,7 +83,7 @@ ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
 jax.jit
 def gravity_force(t):
     return jnp.array([0, -g*rho*A])
-    # t_end_loading = 10*dt
+    # t_end_loading = 0.1
     # return jnp.where(t <= t_end_loading, 
     #                  jnp.array([0, -t/t_end_loading*g*rho*A]), 
     #                  jnp.array([0, -g*rho*A]))
@@ -101,7 +101,6 @@ def exp_f_material_y(t):
 
 
 def assemble_gravity_vector(index_beam, theta_vec):
-
     beam = beam_list[index_beam]
     f_gravity_x = assemble_state_dependent_forcing_vector_cg(beam.x_nodes, \
                                     theta_vec, exp_f_material_x(index_beam))
@@ -116,14 +115,14 @@ def assemble_gravity_vector(index_beam, theta_vec):
 
 
 jax.jit
-def dynamics_vector_field(x_vector, t):
+def dynamics_vector_field(t, x_vector):
     """
     Given the dynamics A xdot = f(x) + G(x)lambda
     Computes f(x)
     """
     theta_vector_1 = x_vector[:beam_1.n_ang_vel]
-    theta_vector_2 = x_vector[ind_theta_2:ind_theta_2 + beam_2.n_ang_vel]
-    theta_vector_3 = x_vector[ind_theta_3:ind_theta_3 + beam_3.n_ang_vel]
+    theta_vector_2 = x_vector[ind_theta_2:ind_theta_3]
+    theta_vector_3 = x_vector[ind_theta_3:ind_coenergy_1]
     
     coenergy_vector_1 = x_vector[ind_coenergy_1:ind_coenergy_2]
     coenergy_vector_2 = x_vector[ind_coenergy_2:ind_coenergy_3]
@@ -163,15 +162,15 @@ def dynamics_vector_field(x_vector, t):
 
 
 jax.jit
-def constraints_matrix(x_vector, t):
+def constraints_matrix(t, x_vector):
     """
     Given the dynamics A xdot = f(x) + G(x)lambda
     Computes G(x)
     """
 
     theta_vector_1 = x_vector[:beam_1.n_ang_vel]
-    theta_vector_2 = x_vector[ind_theta_2:ind_theta_2 + beam_2.n_ang_vel]
-    theta_vector_3 = x_vector[ind_theta_3:ind_theta_3 + beam_3.n_ang_vel]
+    theta_vector_2 = x_vector[ind_theta_2:ind_theta_3]
+    theta_vector_3 = x_vector[ind_theta_3:ind_coenergy_1]
 
     theta_1_at_L = theta_vector_1[-1]
     rot_matrix_1_at_L = rotation_matrix_2d(theta_1_at_L)
@@ -201,17 +200,18 @@ def constraints_matrix(x_vector, t):
     return  G_matrix
 
 
-def vector_field(state_vector, t):
-    x_vec = state_vector[:ind_coenergy_end]
+@jax.jit
+def vector_field(t, state_vector, args=None):
+    x_vector = state_vector[:ind_coenergy_end]
     lambda_vec = state_vector[ind_coenergy_end:]
 
-    f = dynamics_vector_field(x_vec, t)
-    G = constraints_matrix(x_vec, t)
+    f = dynamics_vector_field(t, x_vector)
+    G = constraints_matrix(t, x_vector)
 
     vector_field_state = f + G @ lambda_vec
-    constraints = -G.T @ x_vec
-
+    constraints = -G.T @ x_vector
     return jnp.concatenate([vector_field_state, constraints])
+
 
 
 angle_beam_1_0 = theta_1_0 * jnp.ones(beam_1.n_ang_vel)
@@ -234,16 +234,19 @@ x_0 = jnp.concatenate([angle_vector_0,
                        coenergy_vector_0])
 
 lambda_0 =  compute_lambda0(IH_matrix, dynamics_vector_field, constraints_matrix, x_0)
+state_vector_0 = jnp.concatenate([x_0, lambda_0])
 
 n_steps = int(T_end/dt)
 time_vec_all = dt * jnp.arange(n_steps + 1)
 
-# state_vector_0 = jnp.concatenate([x_0,
-#                                   lambda_0])
-# trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field)
+# # Does nnot work because of the constraints that are not exactly preserved
+# trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field, method="midpoint")
 
 trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
-             IH_matrix, dynamics_vector_field, constraints_matrix)
+             IH_matrix, dynamics_vector_field, constraints_matrix, method="crank_nicolson")
+
+# trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
+#              IH_matrix, dynamics_vector_field, constraints_matrix, method="backward_euler")
 
 n_plot = 500
 if n_plot<n_steps:
@@ -295,26 +298,41 @@ position_3_sol = compute_beam_positions(theta_3_sol,
                                         lin_velocity_3_sol, 
                                         positions_3_t0, time_vec)
 
-# Middle point of beam 2
-node_mid_2 = int(n_elem_2/2)
-r_mid_2 = position_2_sol[:, node_mid_2, :]
+energy_1_vec, kinetic_energy_1_vec, deformation_energy_1_vec = \
+    beam_1.compute_energies(coenergy_1_sol)
+
+energy_2_vec, kinetic_energy_2_vec, deformation_energy_2_vec = \
+    beam_2.compute_energies(coenergy_2_sol)
+
+energy_3_vec, kinetic_energy_3_vec, deformation_energy_3_vec = \
+    beam_3.compute_energies(coenergy_3_sol)
+
+potential_energy_1_vec = compute_potential_energy_nodes(position_1_sol, beam_1.x_nodes, rho, A)
+potential_energy_2_vec = compute_potential_energy_nodes(position_2_sol, beam_2.x_nodes, rho, A)
+potential_energy_3_vec = compute_potential_energy_nodes(position_3_sol, beam_3.x_nodes, rho, A)
+
+total_intrinsic_energy = energy_1_vec + energy_2_vec + energy_3_vec
+total_potential_energy = potential_energy_1_vec + potential_energy_2_vec + potential_energy_3_vec
+total_energy = total_intrinsic_energy + total_potential_energy
 
 plt.figure()
-plt.plot(time_vec, r_mid_2[0])
+plt.plot(time_vec, total_intrinsic_energy, 'b--', label='Intrinsic Energy')
+plt.plot(time_vec, total_potential_energy, 'r--', label='Potential Energy')
+plt.plot(time_vec, total_energy, 'k', label='Total Energy')
 plt.xlabel('Time (s)')
-plt.ylabel('$r_x^P$')
+plt.title('Energies of the four bar mechanism')
 plt.grid(True)
-plt.savefig(folder_results + f"r_x_P.pdf", format="pdf")
+plt.legend()
+plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 plt.tight_layout()
 
 plt.figure()
-plt.plot(time_vec, r_mid_2[1], 'r', label='1')
+plt.plot(time_vec[:-1], jnp.diff(total_intrinsic_energy), 'b--')
 plt.xlabel('Time (s)')
-plt.ylabel('$r_y^P$')
+plt.title('Delta Energy of the four bar mechanism')
 plt.grid(True)
-plt.savefig(folder_results + f"r_y_P.pdf", format="pdf")
+plt.savefig(folder_results + f"EnergyRate.pdf", format="pdf")
 plt.tight_layout()
-
 
 time_instants = jnp.array([j*2 for j in range(6)])
 time_indices = [j for j in range(len(time_vec)) if time_vec[j] in time_instants]
@@ -373,22 +391,43 @@ cbar_1.set_label('$t$')
 cbar_2.set_label('$t$')
 cbar_3.set_label('$t$')
 
-
 ax.set_xlim(-0.1, 3.5)
 ax.set_ylim(-2.1, 1.5)
 
 fig.tight_layout()
 fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 
-animation = animate_overlay_beam_deformation(time_vec, 
-                                                [position_1_sol,
-                                                position_2_sol,
-                                                position_3_sol],
-                                    title="Four bar mechanism",
-                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
-                                    save_path=folder_results + f"Four_bar_mech.gif",
-                                    x_lim=[-0.1, 4],
-                                    y_lim=[-2.5, 1.5])
-
-
 plt.show()
+
+# # Middle point of beam 2
+# node_mid_2 = int(n_elem_2/2)
+# r_mid_2 = position_2_sol[:, node_mid_2, :]
+
+# plt.figure()
+# plt.plot(time_vec, r_mid_2[0])
+# plt.xlabel('Time (s)')
+# plt.ylabel('$r_x^P$')
+# plt.grid(True)
+# plt.savefig(folder_results + f"r_x_P.pdf", format="pdf")
+# plt.tight_layout()
+
+# plt.figure()
+# plt.plot(time_vec, r_mid_2[1], 'r', label='1')
+# plt.xlabel('Time (s)')
+# plt.ylabel('$r_y^P$')
+# plt.grid(True)
+# plt.savefig(folder_results + f"r_y_P.pdf", format="pdf")
+# plt.tight_layout()
+
+# animation = animate_overlay_beam_deformation(time_vec, 
+#                                                 [position_1_sol,
+#                                                 position_2_sol,
+#                                                 position_3_sol],
+#                                     title="Four bar mechanism",
+#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
+#                                     save_path=folder_results + f"Four_bar_mech.gif",
+#                                     x_lim=[-0.1, 4],
+#                                     y_lim=[-2.5, 1.5])
+
+
+# plt.show()

@@ -51,7 +51,7 @@ def spartial_torque(t):
     return jnp.where(t <= 2.5, -80.0, 0.0)
 
 jax.jit
-def vector_field(state_vector, t):
+def vector_field(t, state_vector):
     theta_vector = state_vector[:free_beam.n_ang_vel]
     coenergy_vector = state_vector[free_beam.n_ang_vel:]
 

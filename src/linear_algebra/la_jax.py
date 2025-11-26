@@ -3,9 +3,6 @@ import jax
 from jax.scipy.linalg import solve
 from functools import partial
 
-# Enable 64-bit precision in JAX (must be set before any JAX operations)
-jax.config.update("jax_enable_x64", True)
-
 
 @jax.jit
 def skew_block_matrix(D):
@@ -82,9 +79,9 @@ def newton_solver_fd(fz_func, z0, tol=1e-12, max_iter=20, eps=None):
     z0 : Array
         Initial guess for the root (should be float64 for maximum precision).
     tol : float, optional
-        Tolerance for stopping criterion based on the L2 norm of the residual. Default is 1e-12.
+        Tolerance for stopping criterion based on the L2 norm of the residual. 
     max_iter : int, optional
-        Maximum number of iterations allowed. Default is 20.
+        Maximum number of iterations allowed. 
     eps : float, optional
         Step size for finite differences. If None, uses sqrt(machine epsilon).
     
@@ -133,7 +130,7 @@ def newton_solver_fd(fz_func, z0, tol=1e-12, max_iter=20, eps=None):
 
 
 @partial(jax.jit, static_argnums=0)
-def newton_solver_jax(fz_func, z0, tol=1e-8, max_iter=20):
+def newton_solver_jax(fz_func, z0, tol=1e-10, max_iter=50):
     """
     Solves a nonlinear equation using Newton's method in JAX.
 
@@ -148,9 +145,9 @@ def newton_solver_jax(fz_func, z0, tol=1e-8, max_iter=20):
     z0 : Array
         Initial guess for the root.
     tol : float, optional
-        Tolerance for stopping criterion based on the L2 norm of the residual. Default is 1e-8.
+        Tolerance for stopping criterion based on the L2 norm of the residual.
     max_iter : int, optional
-        Maximum number of iterations allowed. Default is 20.
+        Maximum number of iterations allowed. 
 
     Returns
     -------

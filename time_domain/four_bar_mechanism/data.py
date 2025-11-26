@@ -1,9 +1,9 @@
 import jax.numpy as jnp
 from jax import config; config.update("jax_enable_x64", True)
 
-T_end = 10
+T_end = 5
 
-dt = 0.005
+dt = 0.001
 E_2 = 2.1e8
 
 # dt = 0.02
@@ -13,9 +13,9 @@ E_2 = 2.1e8
 # n_elem_2 = 6
 # n_elem_3 = 6
 
-n_elem_1 = 20
+n_elem_1 = 10
 n_elem_2 = 20
-n_elem_3 = 20
+n_elem_3 = 6
 
 # Beam and material parameters
 L_1 = jnp.sqrt(5)
@@ -79,7 +79,3 @@ material_props_2 = {
     'G': G_2,      # Shear modulus 
     'rho': rho,  # Density
 }
-
-n_elem = n_elem_1
-theta_0 = theta_1_0
-geometrical_props = geometrical_props_1

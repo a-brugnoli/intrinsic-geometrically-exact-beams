@@ -52,7 +52,7 @@ def spatial_torque(t):
 
 
 jax.jit
-def vector_field(state_vector, t):
+def vector_field(t, state_vector):
     # theta_vector_clamped = state_vector[:clamped_half.n_ang_vel]
     # theta_vector_free = state_vector[clamped_half.n_ang_vel: cantilever_beam.n_ang_vel]
 
