@@ -8,6 +8,7 @@ from data import material_props, material_props_2, \
     point_A_0, point_B_0, point_C_0, \
     g, A, rho, dt, T_end
 import jax, diffrax, os
+import numpy as np
 import jax.numpy as jnp
 from src.time_integration.utilities import simulate, simulate_splitting
 from src.rotations.utilities import rotation_matrix_2d
@@ -79,11 +80,11 @@ ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
 
 jax.jit
 def gravity_force(t):
-    return jnp.array([0, -g*rho*A])
-    # t_end_loading = 0.1
-    # return jnp.where(t <= t_end_loading, 
-    #                  jnp.array([0, -t/t_end_loading*g*rho*A]), 
-    #                  jnp.array([0, -g*rho*A]))
+    # return jnp.array([0, -g*rho*A])
+    t_end_loading = 0.1
+    return jnp.where(t <= t_end_loading, 
+                     jnp.array([0, -t/t_end_loading*g*rho*A]), 
+                     jnp.array([0, -g*rho*A]))
 
 jax.jit
 def exp_f_material_x(t):
@@ -330,7 +331,7 @@ time_vec_all = dt * jnp.arange(n_steps + 1)
 #     y0=state_vector_0,
 #     saveat=saveat,
 #     stepsize_controller=stepsize_controller,
-#     max_steps=100000,
+#     max_steps=1000000,
 # )
 # trajectory = solution.ys.T
 
@@ -345,13 +346,18 @@ else:
     step_plot=1
 time_vec = time_vec_all[::step_plot]
 
-theta_1_sol = trajectory[:beam_1.n_ang_vel, ::step_plot]
-theta_2_sol = trajectory[ind_theta_2:ind_theta_3, ::step_plot]
-theta_3_sol = trajectory[ind_theta_3:ind_coenergy_1, ::step_plot]
+trajectory_plot = trajectory[:, ::step_plot]
 
-coenergy_1_sol = trajectory[ind_coenergy_1:ind_coenergy_2, ::step_plot]
-coenergy_2_sol = trajectory[ind_coenergy_2:ind_coenergy_3, ::step_plot]
-coenergy_3_sol = trajectory[ind_coenergy_3:ind_coenergy_end, ::step_plot]
+np.save(folder_results + "time_vec.npy", np.array(time_vec_all))
+np.save(folder_results + "trajectory_plot.npy", np.array(trajectory_plot))
+
+theta_1_sol = trajectory_plot[:beam_1.n_ang_vel]
+theta_2_sol = trajectory_plot[ind_theta_2:ind_theta_3]
+theta_3_sol = trajectory_plot[ind_theta_3:ind_coenergy_1]
+
+coenergy_1_sol = trajectory_plot[ind_coenergy_1:ind_coenergy_2]
+coenergy_2_sol = trajectory_plot[ind_coenergy_2:ind_coenergy_3]
+coenergy_3_sol = trajectory_plot[ind_coenergy_3:ind_coenergy_end]
 
 energy_vec, kinetic_energy_vec, deformation_energy_vec = \
     beam_1.compute_energies(coenergy_1_sol)
@@ -430,7 +436,7 @@ plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 plt.tight_layout()
 
 plt.figure()
-plt.plot(time_vec[:-1], jnp.diff(total_intrinsic_energy), 'b--')
+plt.plot(time_vec[:-1], jnp.diff(total_energy), 'b--')
 plt.xlabel('Time (s)')
 plt.title('Delta Energy of the four bar mechanism')
 plt.grid(True)

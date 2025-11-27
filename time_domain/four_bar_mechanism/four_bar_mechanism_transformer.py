@@ -6,6 +6,7 @@ from data import material_props, material_props_2, \
     point_A_0, point_B_0, point_C_0, \
     g, A, rho, dt, T_end
 import jax.numpy as jnp
+import numpy as np
 import jax, diffrax, os
 from src.time_integration.utilities import simulate, \
         simulate_exact_constraints, compute_lambda0
@@ -255,13 +256,18 @@ else:
     step_plot=1
 time_vec = time_vec_all[::step_plot]
 
-theta_1_sol = trajectory[:beam_1.n_ang_vel, ::step_plot]
-theta_2_sol = trajectory[ind_theta_2:ind_theta_2 + beam_2.n_ang_vel, ::step_plot]
-theta_3_sol = trajectory[ind_theta_3:ind_theta_3 + beam_3.n_ang_vel, ::step_plot]
+trajectory_plot = trajectory[:, ::step_plot]
 
-coenergy_1_sol = trajectory[ind_coenergy_1:ind_coenergy_2, ::step_plot]
-coenergy_2_sol = trajectory[ind_coenergy_2:ind_coenergy_3, ::step_plot]
-coenergy_3_sol = trajectory[ind_coenergy_3:ind_coenergy_end, ::step_plot]
+# np.save(folder_results + "time_vec.npy", np.array(time_vec_all))
+# np.save(folder_results + "trajectory.npy", np.array(trajectory))
+
+theta_1_sol = trajectory_plot[:beam_1.n_ang_vel]
+theta_2_sol = trajectory_plot[ind_theta_2:ind_theta_3]
+theta_3_sol = trajectory_plot[ind_theta_3:ind_coenergy_1]
+
+coenergy_1_sol = trajectory_plot[ind_coenergy_1:ind_coenergy_2]
+coenergy_2_sol = trajectory_plot[ind_coenergy_2:ind_coenergy_3]
+coenergy_3_sol = trajectory_plot[ind_coenergy_3:ind_coenergy_end]
 
 lin_velocity_1_sol = coenergy_1_sol[:beam_1.n_lin_vel]
 lin_velocity_2_sol = coenergy_2_sol[:beam_2.n_lin_vel]
@@ -327,7 +333,7 @@ plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 plt.tight_layout()
 
 plt.figure()
-plt.plot(time_vec[:-1], jnp.diff(total_intrinsic_energy), 'b--')
+plt.plot(time_vec[:-1], jnp.diff(total_energy), 'b--')
 plt.xlabel('Time (s)')
 plt.title('Delta Energy of the four bar mechanism')
 plt.grid(True)
