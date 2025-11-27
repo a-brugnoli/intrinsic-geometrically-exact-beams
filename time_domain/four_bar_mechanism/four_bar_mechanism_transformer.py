@@ -83,11 +83,14 @@ ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
 
 jax.jit
 def gravity_force(t):
-    return jnp.array([0, -g*rho*A])
-    # t_end_loading = 0.1
+    # return jnp.array([0, -g*rho*A])
+    t_end_loading = 1
     # return jnp.where(t <= t_end_loading, 
     #                  jnp.array([0, -t/t_end_loading*g*rho*A]), 
     #                  jnp.array([0, -g*rho*A]))
+    return jnp.where(t <= t_end_loading, 
+                     jnp.array([0, -g*rho*A]), 
+                     jnp.array([0, 0]))
 
 
 jax.jit
@@ -258,8 +261,8 @@ time_vec = time_vec_all[::step_plot]
 
 trajectory_plot = trajectory[:, ::step_plot]
 
-# np.save(folder_results + "time_vec.npy", np.array(time_vec_all))
-# np.save(folder_results + "trajectory.npy", np.array(trajectory))
+np.save(folder_results + "time_vec.npy", np.array(time_vec))
+np.save(folder_results + "trajectory_plot.npy", np.array(trajectory_plot))
 
 theta_1_sol = trajectory_plot[:beam_1.n_ang_vel]
 theta_2_sol = trajectory_plot[ind_theta_2:ind_theta_3]
@@ -403,8 +406,6 @@ ax.set_ylim(-2.1, 1.5)
 fig.tight_layout()
 fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 
-plt.show()
-
 # # Middle point of beam 2
 # node_mid_2 = int(n_elem_2/2)
 # r_mid_2 = position_2_sol[:, node_mid_2, :]
@@ -425,15 +426,15 @@ plt.show()
 # plt.savefig(folder_results + f"r_y_P.pdf", format="pdf")
 # plt.tight_layout()
 
-# animation = animate_overlay_beam_deformation(time_vec, 
-#                                                 [position_1_sol,
-#                                                 position_2_sol,
-#                                                 position_3_sol],
-#                                     title="Four bar mechanism",
-#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
-#                                     save_path=folder_results + f"Four_bar_mech.gif",
-#                                     x_lim=[-0.1, 4],
-#                                     y_lim=[-2.5, 1.5])
+animation = animate_overlay_beam_deformation(time_vec, 
+                                                [position_1_sol,
+                                                position_2_sol,
+                                                position_3_sol],
+                                    title="Four bar mechanism",
+                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
+                                    save_path=folder_results + f"Four_bar_mech.gif",
+                                    x_lim=[-0.1, 4],
+                                    y_lim=[-2.5, 2.5])
 
 
-# plt.show()
+plt.show()

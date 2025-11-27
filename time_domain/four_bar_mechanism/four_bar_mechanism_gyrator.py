@@ -80,20 +80,24 @@ ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
 
 jax.jit
 def gravity_force(t):
-    # return jnp.array([0, -g*rho*A])
-    t_end_loading = 0.1
-    return jnp.where(t <= t_end_loading, 
-                     jnp.array([0, -t/t_end_loading*g*rho*A]), 
-                     jnp.array([0, -g*rho*A]))
+    return jnp.array([0, -g*rho*A])
+    # t_end_loading = 10
+    # return jnp.where(t <= t_end_loading, 
+    #                  jnp.array([0, -t/t_end_loading*g*rho*A]), 
+    #                  jnp.array([0, -g*rho*A]))
+    
 
 jax.jit
 def exp_f_material_x(t):
-    return lambda angle: + jnp.cos(angle) * gravity_force(t)[0] \
-                         + jnp.sin(angle) * gravity_force(t)[1]
+    return lambda angle: angle * jnp.zeros_like(angle)
+    # return lambda angle: + jnp.cos(angle) * gravity_force(t)[0] \
+    #                      + jnp.sin(angle) * gravity_force(t)[1]
+
 jax.jit
 def exp_f_material_y(t):
-    return lambda angle: - jnp.sin(angle) * gravity_force(t)[0] \
-                         + jnp.cos(angle) * gravity_force(t)[1]   
+    return lambda angle: -g*rho*A*jnp.ones_like(angle) 
+    # return lambda angle: - jnp.sin(angle) * gravity_force(t)[0] \
+    #                      + jnp.cos(angle) * gravity_force(t)[1]   
 
 
 jax.jit
@@ -348,7 +352,7 @@ time_vec = time_vec_all[::step_plot]
 
 trajectory_plot = trajectory[:, ::step_plot]
 
-np.save(folder_results + "time_vec.npy", np.array(time_vec_all))
+np.save(folder_results + "time_vec.npy", np.array(time_vec))
 np.save(folder_results + "trajectory_plot.npy", np.array(trajectory_plot))
 
 theta_1_sol = trajectory_plot[:beam_1.n_ang_vel]
@@ -528,14 +532,14 @@ fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 # plt.savefig(folder_results + f"r_y_P.pdf", format="pdf")
 # plt.tight_layout()
 
-animation = animate_overlay_beam_deformation(time_vec, 
-                                                [position_1_sol,
-                                                position_2_sol,
-                                                position_3_sol],
-                                    title="Four bar mechanism",
-                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
-                                    save_path=folder_results + f"Four_bar_mech.gif",
-                                    x_lim=[-0.1, 4],
-                                    y_lim=[-2.5, 1.5])
+# animation = animate_overlay_beam_deformation(time_vec, 
+#                                                 [position_1_sol,
+#                                                 position_2_sol,
+#                                                 position_3_sol],
+#                                     title="Four bar mechanism",
+#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
+#                                     save_path=folder_results + f"Four_bar_mech.gif",
+#                                     x_lim=[-0.1, 4],
+#                                     y_lim=[-2.5, 2.5])
 
 plt.show()
