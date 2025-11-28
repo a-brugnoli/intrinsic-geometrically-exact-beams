@@ -164,3 +164,37 @@ class IntrinsicPlanarClampedFreeBeam():
         deformation_energy_vec = deformation_energy_left + deformation_energy_right
 
         return energy_vec, kinetic_energy_vec, deformation_energy_vec
+    
+
+
+    @jax.jit
+    def vector_field_positions(self, theta_vector: jnp.ndarray, lin_velocity_vector: jnp.ndarray) -> jnp.ndarray:
+        """
+        Compute the vector field for the spatial positions of the beam points 
+        f(theta, v) = R(theta) * v
+        where R(theta) is the rotation matrix from body frame to spatial frame.
+        """
+        n_theta_left = self.clamped_beam.n_ang_vel
+        theta_left = theta_vector[:n_theta_left]
+        theta_right = theta_vector[n_theta_left:]
+
+        vel_left = lin_velocity_vector[:self.clamped_beam.n_lin_vel]
+        vel_right = lin_velocity_vector[self.clamped_beam.n_lin_vel:]
+
+        vector_field_left = self.clamped_beam.vector_field_positions(theta_left, vel_left)
+        vector_field_right = self.free_beam.vector_field_positions(theta_right, vel_right)
+
+        return jnp.concatenate([vector_field_left, vector_field_right])
+    
+
+
+    @partial(jax.jit, static_argnums=0)
+    def mass_matrix_positions(self) -> jnp.ndarray:
+        """
+        Mass matrix for the spatial positions of the beam points
+        """
+        M_positions_clamped = self.clamped_beam.mass_matrix_positions()
+        M_positions_free = self.free_beam.mass_matrix_positions()
+        M_positions = jla.block_diag(M_positions_clamped, M_positions_free)
+
+        return M_positions

@@ -21,7 +21,7 @@ from matplotlib.colors import Normalize
 from src.postprocessing.potential_energy import compute_potential_energy_nodes, \
                                                 compute_potential_energy_midpoints          
 from src.postprocessing.animate import animate_overlay_beam_deformation
-from src.postprocessing.postprocess_variables import compute_beam_positions
+from src.postprocessing.postprocess_variables import compute_beam_positions, compute_consistent_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 
@@ -376,28 +376,10 @@ y_points_1_t0 = y_A + beam_1.x_nodes * jnp.sin(theta_1_sol[:, 0])
 
 x_midpoints_1_t0 = 0.5*(x_points_1_t0[1:] + x_points_1_t0[:-1])
 y_midpoints_1_t0 = 0.5*(y_points_1_t0[1:] + y_points_1_t0[:-1])
-positions_1_t0 = jnp.stack([x_midpoints_1_t0,
-                            y_midpoints_1_t0], axis=1)
-
-position_1_sol = compute_beam_positions(theta_1_sol, 
-                                        lin_velocity_1_sol, 
-                                        positions_1_t0, time_vec)
-
-
-norm_position_sol = jnp.linalg.norm(position_1_sol, axis=(0, 1))
-norm_lin_velocity_sol = jnp.linalg.norm(lin_velocity_1_sol, axis=0)
-norm_theta_sol = jnp.linalg.norm(theta_1_sol, axis=0)
 
 x_B, y_B = point_B_0
 x_points_2_t0 = x_B + beam_2.x_nodes * jnp.cos(theta_2_sol[:, 0])
 y_points_2_t0 = y_B + beam_2.x_nodes * jnp.sin(theta_2_sol[:, 0])
-
-positions_2_t0 = jnp.stack([x_points_2_t0,
-                                y_points_2_t0], axis=1)
-
-position_2_sol = compute_beam_positions(theta_2_sol, 
-                                        lin_velocity_2_sol, 
-                                        positions_2_t0, time_vec)
 
 x_C, y_C = point_C_0
 x_points_3_t0 = x_C + beam_3.x_nodes * jnp.cos(theta_3_sol[:, 0])
@@ -405,12 +387,49 @@ y_points_3_t0 = y_C + beam_3.x_nodes * jnp.sin(theta_3_sol[:, 0])
 
 x_midpoints_3_t0 = 0.5*(x_points_3_t0[1:] + x_points_3_t0[:-1])
 y_midpoints_3_t0 = 0.5*(y_points_3_t0[1:] + y_points_3_t0[:-1])
-positions_3_t0 = jnp.stack([x_midpoints_3_t0,
-                                y_midpoints_3_t0], axis=1)
 
-position_3_sol = compute_beam_positions(theta_3_sol, 
+
+# positions_1_t0 = jnp.stack([x_midpoints_1_t0,
+#                             y_midpoints_1_t0], axis=1)
+
+# position_1_sol = compute_beam_positions(theta_1_sol, 
+#                                         lin_velocity_1_sol, 
+#                                         positions_1_t0, time_vec)
+
+# positions_2_t0 = jnp.stack([x_points_2_t0,
+#                             y_points_2_t0], axis=1)
+# position_2_sol = compute_beam_positions(theta_2_sol, 
+#                                         lin_velocity_2_sol, 
+#                                         positions_2_t0, time_vec)
+
+# positions_3_t0 = jnp.stack([x_midpoints_3_t0,
+#                                 y_midpoints_3_t0], axis=1)
+# position_3_sol = compute_beam_positions(theta_3_sol, 
+#                                         lin_velocity_3_sol, 
+#                                         positions_3_t0, time_vec)
+
+
+positions_1_t0 = jnp.concatenate([x_midpoints_1_t0,
+                             y_midpoints_1_t0])
+position_1_sol = compute_consistent_beam_positions(beam_1,
+                                        theta_1_sol, 
+                                        lin_velocity_1_sol, 
+                                        positions_1_t0, time_vec)
+
+positions_2_t0 = jnp.concatenate([x_points_2_t0,
+                            y_points_2_t0])
+position_2_sol = compute_consistent_beam_positions(beam_2,
+                                        theta_2_sol, 
+                                        lin_velocity_2_sol, 
+                                        positions_2_t0, time_vec)
+
+positions_3_t0 = jnp.concatenate([x_midpoints_3_t0,
+                                y_midpoints_3_t0])
+position_3_sol = compute_consistent_beam_positions(beam_3,
+                                        theta_3_sol, 
                                         lin_velocity_3_sol, 
                                         positions_3_t0, time_vec)
+
 
 energy_1_vec, kinetic_energy_1_vec, deformation_energy_1_vec = \
     beam_1.compute_energies(coenergy_1_sol)

@@ -44,7 +44,7 @@ def _element_forcing_dg(xL, xR, u_local, nonlinear_func, n_gauss_points):
 def assemble_state_dependent_forcing_vector_cg(x_nodes: jnp.ndarray,
                                                 u_dofs: jnp.ndarray,
                                                 nonlinear_func : callable,
-                                                n_gauss_points: int = 3) -> jnp.ndarray:
+                                                n_gauss_points: int = 2) -> jnp.ndarray:
     """
     Assemble global nonlinear forcing vector f(u) where f is a user-defined function of u.
 
@@ -88,7 +88,7 @@ def assemble_state_dependent_forcing_vector_cg(x_nodes: jnp.ndarray,
 def assemble_state_dependent_forcing_vector_dg(x_nodes: jnp.ndarray,
                                                  u_dofs: jnp.ndarray,
                                                  nonlinear_func: callable,
-                                                 n_gauss_points: int = 3) -> jnp.ndarray:
+                                                 n_gauss_points: int = 2) -> jnp.ndarray:
     """
     Assemble global nonlinear forcing vector f(u) for DG0 (piecewise constant) test functions.
     

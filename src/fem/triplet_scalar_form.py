@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 from src.fem.basis_functions import phi_ref, eval_ref_elem_interp_at_nodes
 from src.fem.quadrature import gauss_quadrature
+from functools import partial
 
 
 @jax.jit
@@ -83,6 +84,7 @@ def assemble_trilinear_scalar_form_cg(x_nodes: jnp.ndarray,
     return jax.lax.fori_loop(0, n_elements, element_contribution, form)
 
 
+@jax.jit
 def _element_trilinear_scalar_form_dg(xL, xR, u_local, w_local):
     xi_q, w_q = gauss_quadrature(2)
     h = xR - xL
@@ -133,6 +135,160 @@ def assemble_trilinear_scalar_form_dg(x_nodes: jnp.ndarray,
         w_local = jax.lax.dynamic_slice(w_dofs, (i,), (2,)) if w_is_p1 else jnp.array([w_dofs[i]])
 
         local = _element_trilinear_scalar_form_dg(xL, xR, u_local, w_local)
+
+        acc = acc.at[i].add(local[0])
+        return acc
+
+    return jax.lax.fori_loop(0, n_elements, element_contribution, form)
+
+
+@partial(jax.jit, static_argnums=4)
+def _element_nontrilinear_scalar_form_cg(xL, xR, u_local, w_local, nonlinear_fn, n_gauss_points):
+    """
+    Compute the element-level trilinear form ∫ phi_i * f(u_h) * w_h dx for a given element.
+
+    This function evaluates the contribution of an element to the global trilinear form
+    using continuous (P1) basis functions and Gauss quadrature. Supports nonlinear
+    functions of u.
+
+    Args:
+        xL: Left coordinate of the element.
+        xR: Right coordinate of the element.
+        u_local: JAX array of degrees of freedom for the solution u_h within the element.
+        w_local: JAX array of degrees of freedom for the weighting function w_h within the element.
+        nonlinear_fn: callable that takes u values and returns f(u). 
+        n_gauss_points: Number of Gauss quadrature points to use.
+
+    Returns:
+        A JAX array representing the element-level contribution to the trilinear form.
+    """
+    xi_q, w_q = gauss_quadrature(n_gauss_points)
+    h = xR - xL
+    jac = 0.5 * h
+
+    # Shape (2, n_gauss_points), i.e., [phi_0, phi_1] for P1 and number of Gauss points
+    phi_vals = jnp.stack([phi_ref(0, xi_q), phi_ref(1, xi_q)])
+
+    # Shape (n_gauss_points,)
+    u_vals = eval_ref_elem_interp_at_nodes(u_local, xi_q)
+    w_vals = eval_ref_elem_interp_at_nodes(w_local, xi_q)
+    
+    # Apply nonlinear function if provided
+    f_u_vals = nonlinear_fn(u_vals)
+    
+    integrands = jac * phi_vals * f_u_vals * w_vals
+    return jnp.dot(integrands, w_q)
+
+
+@partial(jax.jit, static_argnums=3)
+def assemble_nontrilinear_scalar_form_cg(x_nodes: jnp.ndarray,
+                                        u_dofs: jnp.ndarray,
+                                        w_dofs: jnp.ndarray,
+                                        nonlinear_fn, 
+                                        n_gauss_points=2) -> jnp.ndarray:
+    """
+    Assemble the linear form L_j = ∫ u_h * f(w_h) * ψ_j dx for continuous (C0) test functions 
+    (e.g., Lagrange P1 finite elements) over a 1D mesh.
+
+    Args:
+        x_nodes (jnp.ndarray): 1D array of mesh node coordinates, length N+1.
+        u_dofs (jnp.ndarray): Degrees of freedom for u_h.
+            - If length N+1, u_h is piecewise linear (P1).
+            - If length N, u_h is piecewise constant (P0).
+        w_dofs (jnp.ndarray): Degrees of freedom for w_h.
+            - Same convention as u_dofs.
+        nonlinear_fn: callable that takes u values and returns f(u). 
+        n_gauss_points: Number of Gauss quadrature points to use (default: 2).
+
+    Returns:
+        jnp.ndarray: Load vector of length N+1 corresponding to the nodal test functions.
+    """
+    n_nodes = x_nodes.shape[0]
+    n_elements = n_nodes - 1
+    len_u = u_dofs.shape[0]
+    len_w = w_dofs.shape[0]
+    assert len_u in (n_nodes, n_nodes - 1), "u_dofs must be of length N+1 or N"
+    assert len_w in (n_nodes, n_nodes - 1), "w_dofs must be of length N+1 or N"
+
+    u_is_p1 = len_u == n_nodes
+    w_is_p1 = len_w == n_nodes
+
+    form = jnp.zeros(n_nodes)
+
+    def element_contribution(i, acc):
+        """"
+        Compute the local contribution to the global linear form for each element.
+        """
+        xL, xR = x_nodes[i], x_nodes[i + 1]
+        u_local = jax.lax.dynamic_slice(u_dofs, (i,), (2,)) if u_is_p1 else jnp.array([u_dofs[i]])
+        w_local = jax.lax.dynamic_slice(w_dofs, (i,), (2,)) if w_is_p1 else jnp.array([w_dofs[i]])
+
+        local = _element_nontrilinear_scalar_form_cg(xL, xR, u_local, w_local, nonlinear_fn, n_gauss_points)
+
+        acc = acc.at[i].add(local[0])
+        acc = acc.at[i + 1].add(local[1])
+        return acc
+
+    return jax.lax.fori_loop(0, n_elements, element_contribution, form)
+
+
+@partial(jax.jit, static_argnums=4)
+def _element_nontrilinear_scalar_form_dg(xL, xR, u_local, w_local, nonlinear_fn, n_gauss_points):
+    xi_q, w_q = gauss_quadrature(n_gauss_points)
+    h = xR - xL
+    jac = 0.5 * h
+
+    # Shape (2,) i.e. number of gauss points
+
+    u_vals = eval_ref_elem_interp_at_nodes(u_local, xi_q)
+    w_vals = eval_ref_elem_interp_at_nodes(w_local, xi_q)
+
+    f_u_vals = nonlinear_fn(u_vals)
+    integrands = jac * f_u_vals * w_vals
+    return jnp.array([jnp.dot(integrands, w_q)])
+
+
+@partial(jax.jit, static_argnums=3)
+def assemble_nontrilinear_scalar_form_dg(x_nodes: jnp.ndarray,
+                                        u_dofs: jnp.ndarray,
+                                        w_dofs: jnp.ndarray,
+                                        nonlinear_fn, 
+                                        n_gauss_points=2) -> jnp.ndarray:
+    """
+    Assemble the linear form L_j = ∫ u_h * f(w_h) * ψ_j dx for discontinuous (C-1) test functions 
+    (e.g., piecewise constant finite elements) over a 1D mesh.
+
+    Args:
+        x_nodes (jnp.ndarray): 1D array of mesh node coordinates, length N+1.
+        u_dofs (jnp.ndarray): Degrees of freedom for u_h.
+            - If length N+1, u_h is piecewise linear (P1).
+            - If length N, u_h is piecewise constant (P0).
+        w_dofs (jnp.ndarray): Degrees of freedom for w_h.
+            - Same convention as u_dofs.
+        nonlinear_fn: callable that takes u values and returns f(u).
+        n_gauss_points: Number of Gauss quadrature points to use (default: 2).
+
+    Returns:
+        jnp.ndarray: Load vector of length N corresponding to the element-wise test functions.
+    """
+    n_nodes = x_nodes.shape[0]
+    n_elements = n_nodes - 1
+    len_u = u_dofs.shape[0]
+    len_w = w_dofs.shape[0]
+    assert len_u in (n_nodes, n_nodes - 1), "u_dofs must be of length N+1 or N"
+    assert len_w in (n_nodes, n_nodes - 1), "w_dofs must be of length N+1 or N"
+
+    u_is_p1 = len_u == n_nodes
+    w_is_p1 = len_w == n_nodes
+
+    form = jnp.zeros(n_elements)
+
+    def element_contribution(i, acc):
+        xL, xR = x_nodes[i], x_nodes[i + 1]
+        u_local = jax.lax.dynamic_slice(u_dofs, (i,), (2,)) if u_is_p1 else jnp.array([u_dofs[i]])
+        w_local = jax.lax.dynamic_slice(w_dofs, (i,), (2,)) if w_is_p1 else jnp.array([w_dofs[i]])
+
+        local = _element_nontrilinear_scalar_form_dg(xL, xR, u_local, w_local, nonlinear_fn, n_gauss_points)
 
         acc = acc.at[i].add(local[0])
         return acc

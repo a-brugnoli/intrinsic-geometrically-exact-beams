@@ -1,7 +1,9 @@
 import jax.numpy as jnp
 from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
-from src.fem.trilinear_vector_form import assemble_2d_cross_form_cg, assemble_2d_cross_form_dg, \
+from src.fem.triplet_vector_form import assemble_2d_cross_form_cg, assemble_2d_cross_form_dg, \
                                           assemble_2d_cross_skew_adjoint_form_cg
+from src.fem.triplet_scalar_form import assemble_nontrilinear_scalar_form_dg
+
 from src.linear_algebra.la_jax import skew_block_matrix
 import jax
 from functools import partial
@@ -145,3 +147,38 @@ class IntrinsicPlanarPinnedBeam(IntrinsicBeam):
         B = B.at[self.n_vel + self.n_force-1, 5].set(1)         # Linear velocity y at L
 
         return B
+
+
+    @partial(jax.jit, static_argnums=0)
+    def vector_field_positions(self, theta_vector: jnp.ndarray, lin_velocity_vector: jnp.ndarray) -> jnp.ndarray:
+        """
+        Compute the vector field for the spatial positions of the beam points 
+        f(theta, v) = R(theta) * v
+        where R(theta) is the rotation matrix from body frame to spatial frame.
+        """
+        vel_x = lin_velocity_vector[:self.n_lin_vel_x]
+        vel_y = lin_velocity_vector[self.n_lin_vel_x:self.n_lin_vel]
+
+        vector_field_x = + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_x, jnp.cos) \
+                         - assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_y, jnp.sin)
+        
+        vector_field_y = + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_x, jnp.sin) \
+                         + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_y, jnp.cos)
+        
+        return jnp.concatenate([vector_field_x, vector_field_y])
+    
+
+    @partial(jax.jit, static_argnums=0)
+    def mass_matrix_positions(self) -> jnp.ndarray:
+        """
+        Mass matrix for the spatial positions of the beam points
+        """
+        M_pos_x = self.h_mesh * jnp.eye(self.n_elem)
+        M_pos_y = self.h_mesh * jnp.eye(self.n_elem)
+
+        M_positions = jax.scipy.linalg.block_diag(
+            M_pos_x,
+            M_pos_y
+        )
+
+        return M_positions

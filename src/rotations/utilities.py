@@ -24,9 +24,6 @@ def rotation_matrix_2d_batch(theta):
 if __name__ == "__main__":
 
     theta_vec = jnp.array([jnp.pi / 6, jnp.pi / 4])
-
-
-
     rotation_batch = rotation_matrix_2d_batch(theta_vec)
     for ii in range(theta_vec.shape[0]):
 

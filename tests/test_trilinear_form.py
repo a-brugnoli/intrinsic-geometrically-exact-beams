@@ -1,7 +1,7 @@
 import unittest
 import jax.numpy as jnp
 
-from src.fem.trilinear_scalar_form import assemble_trilinear_scalar_form_cg, assemble_trilinear_scalar_form_dg
+from src.fem.triplet_scalar_form import assemble_trilinear_scalar_form_cg, assemble_trilinear_scalar_form_dg
 
 class TestTrilinearScalarFormAssembly(unittest.TestCase):
     """

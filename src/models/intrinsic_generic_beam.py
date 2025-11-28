@@ -153,3 +153,11 @@ class IntrinsicBeam(ABC):
 
         return energy_vec, kinetic_energy_vec, deformation_energy_vec
     
+
+    @abstractmethod
+    def vector_field_positions(self, theta_vector: jnp.ndarray, lin_velocity_vector: jnp.ndarray) -> jnp.ndarray:
+        pass
+
+    @abstractmethod
+    def mass_matrix_positions(self) -> jnp.ndarray:
+        pass
