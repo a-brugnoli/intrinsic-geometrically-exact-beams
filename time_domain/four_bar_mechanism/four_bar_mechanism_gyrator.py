@@ -89,15 +89,13 @@ def gravity_force(t):
 
 jax.jit
 def exp_f_material_x(t):
-    return lambda angle: angle * jnp.zeros_like(angle)
-    # return lambda angle: + jnp.cos(angle) * gravity_force(t)[0] \
-    #                      + jnp.sin(angle) * gravity_force(t)[1]
+    return lambda angle: + jnp.cos(angle) * gravity_force(t)[0] \
+                         + jnp.sin(angle) * gravity_force(t)[1]
 
 jax.jit
 def exp_f_material_y(t):
-    return lambda angle: -g*rho*A*jnp.ones_like(angle) 
-    # return lambda angle: - jnp.sin(angle) * gravity_force(t)[0] \
-    #                      + jnp.cos(angle) * gravity_force(t)[1]   
+    return lambda angle: - jnp.sin(angle) * gravity_force(t)[0] \
+                         + jnp.cos(angle) * gravity_force(t)[1]   
 
 
 jax.jit
@@ -325,7 +323,7 @@ time_vec_all = dt * jnp.arange(n_steps + 1)
 # term = diffrax.ODETerm(vector_field_ode)
 # saveat = diffrax.SaveAt(ts=time_vec_all)
 # solver = diffrax.Kvaerno5()  
-# stepsize_controller = diffrax.PIDController(rtol=1e-6, atol=1e-8)
+# stepsize_controller = diffrax.PIDController(rtol=1e-9, atol=1e-12)
 # solution = diffrax.diffeqsolve(
 #     term,
 #     solver=solver,
@@ -551,14 +549,14 @@ fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 # plt.savefig(folder_results + f"r_y_P.pdf", format="pdf")
 # plt.tight_layout()
 
-# animation = animate_overlay_beam_deformation(time_vec, 
-#                                                 [position_1_sol,
-#                                                 position_2_sol,
-#                                                 position_3_sol],
-#                                     title="Four bar mechanism",
-#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
-#                                     save_path=folder_results + f"Four_bar_mech.gif",
-#                                     x_lim=[-0.1, 4],
-#                                     y_lim=[-2.5, 2.5])
+animation = animate_overlay_beam_deformation(time_vec, 
+                                                [position_1_sol,
+                                                position_2_sol,
+                                                position_3_sol],
+                                    title="Four bar mechanism",
+                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
+                                    save_path=folder_results + f"Four_bar_mech.gif",
+                                    x_lim=[-0.1, 4],
+                                    y_lim=[-2.5, 2.5])
 
 plt.show()

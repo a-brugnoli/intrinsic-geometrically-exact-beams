@@ -3,7 +3,7 @@ from jax import config; config.update("jax_enable_x64", True)
 
 T_end = .1
 
-dt = 0.001
+dt = 0.0025
 E_2 = 2.1e8
 
 # dt = 0.02
