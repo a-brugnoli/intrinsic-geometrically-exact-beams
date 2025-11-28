@@ -20,6 +20,11 @@ dist/
 # Logs
 *.log
 
+# Pdf
+*.pdf
+#.mp4
+*.mp4
+
 # Jupyter
 .ipynb_checkpoints/
 

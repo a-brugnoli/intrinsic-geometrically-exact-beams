@@ -1,5 +1,7 @@
 import jax
 import jax.numpy as jnp
+from src.fem.matrices_assembly import mass_matrix_lagrange
+
 
 def compute_potential_energy_nodes(positions, x_nodes, rho, A, g=9.81):
     """

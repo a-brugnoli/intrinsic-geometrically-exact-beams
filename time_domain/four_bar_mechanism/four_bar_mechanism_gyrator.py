@@ -408,14 +408,14 @@ y_midpoints_3_t0 = 0.5*(y_points_3_t0[1:] + y_points_3_t0[:-1])
 
 
 positions_1_t0 = jnp.concatenate([x_midpoints_1_t0,
-                             y_midpoints_1_t0])
+                                y_midpoints_1_t0])
 position_1_sol = compute_consistent_beam_positions(beam_1,
                                         theta_1_sol, 
                                         lin_velocity_1_sol, 
                                         positions_1_t0, time_vec)
 
 positions_2_t0 = jnp.concatenate([x_points_2_t0,
-                            y_points_2_t0])
+                                y_points_2_t0])
 position_2_sol = compute_consistent_beam_positions(beam_2,
                                         theta_2_sol, 
                                         lin_velocity_2_sol, 
