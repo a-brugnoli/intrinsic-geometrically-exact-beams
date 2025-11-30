@@ -155,7 +155,7 @@ class IntrinsicBeam(ABC):
     
 
     @abstractmethod
-    def assemble_gravity(self, theta_vector: jnp.ndarray, g=9.81) -> jnp.ndarray:
+    def assemble_gravity(self, theta_vector: jnp.ndarray, g=9.81, n_gauss_points=2) -> jnp.ndarray:
         pass
 
 
@@ -174,7 +174,7 @@ class IntrinsicBeam(ABC):
 
 
     @partial(jax.jit, static_argnums=0)
-    def compute_beam_positions(self, theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
+    def compute_positions(self, theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
                         initial_position: jnp.ndarray, time_sol: jnp.ndarray):
         """
         Compute the spatial positions of 2D beam points or midpoints over time given

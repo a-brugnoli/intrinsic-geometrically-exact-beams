@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
-
-from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 import os
@@ -60,6 +58,7 @@ def vector_field_clamped(t, state_vector):
 
     return jnp.concatenate([vector_field_theta, vector_field_coenergy, vector_field_constraints])
 
+
 angle_0_clamped = jnp.zeros(clamped_beam.n_ang_vel)
 coenergy_vector_0_clamped = jnp.zeros(clamped_beam.n_coenergy)
 lagrange_multiplier_0_clamped = jnp.zeros(n_lambda_clamped)
@@ -78,9 +77,12 @@ lagrange_sol_clamped = trajectory_clamped[-n_lambda_clamped:, :]
 
 lin_velocity_sol_clamped = coenergy_sol_clamped[:clamped_beam.n_lin_vel, :]
 midpoints_clamped = 0.5 * (clamped_beam.x_nodes[:-1] + clamped_beam.x_nodes[1:])
-initial_position_clamped = jnp.stack([midpoints_clamped,
-                              jnp.zeros_like(midpoints_clamped)], axis=1)
-position_sol_clamped = compute_beam_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
+initial_position_clamped = jnp.concatenate([midpoints_clamped,
+                            jnp.zeros_like(midpoints_clamped)])
+position_sol_clamped = clamped_beam.compute_positions(theta_sol_clamped, 
+                                                           lin_velocity_sol_clamped, 
+                                                           initial_position_clamped, 
+                                                           time_vec)
 
 idx_moment_clamped = clamped_beam.n_lin_vel + clamped_beam.n_ang_vel + clamped_beam.n_force
 moment_sol_clamped = coenergy_sol_clamped[idx_moment_clamped:, :]
@@ -115,7 +117,6 @@ def vector_field_free(t, state_vector):
     return jnp.concatenate([vector_field_theta, vector_field_coenergy, vector_field_constraints])
 
 
-
 # Compatible lagrange mutipliers are found by solving
 # (B^T M^{-1} B) lambda_0 = -B^T M^{-1} (J(e_0)e_0 + f_0)
 # Since e_0 = 0 and f_0 = 0 => lambda_0 = 0
@@ -140,98 +141,96 @@ idx_moment_free = free_beam.n_lin_vel + free_beam.n_ang_vel + free_beam.n_force
 moment_sol_free = coenergy_sol_free[idx_moment_free:, :]
 
 
-initial_position_free = jnp.stack([free_beam.x_nodes,
-                                jnp.zeros_like(free_beam.x_nodes)], axis=1)
+initial_position_free = jnp.concatenate([free_beam.x_nodes,
+                                jnp.zeros_like(free_beam.x_nodes)])
 
-position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
+position_sol_free = free_beam.compute_positions(theta_sol_free, 
+                                                     lin_velocity_sol_free, 
+                                                     initial_position_free, 
+                                                     time_vec)
 
-# Create and display animation
-from src.postprocessing.animate import animate_overlay_beam_deformation
-print("Creating animation...")
-anim = animate_overlay_beam_deformation(
-    time_vec, [position_sol_clamped, position_sol_free],
-    fps=5, interval=100,
-    title="Comparison: clamped and free formulations roll-up",
-    colors=('blue', 'red'),
-    labels=('Clamped', 'Free'),
-    lock_at_end=True,
-    save_path=folder_results + "comparison_clamped_free_roll_up.gif"
-)
+# # Create and display animation
+# from src.postprocessing.animate import animate_overlay_beam_deformation
+# print("Creating animation...")
+# anim = animate_overlay_beam_deformation(
+#     time_vec, [position_sol_clamped, position_sol_free],
+#     fps=5, interval=100,
+#     title="Comparison: clamped and free formulations roll-up",
+#     colors=('blue', 'red'),
+#     labels=('Clamped', 'Free'),
+#     lock_at_end=True,
+#     save_path=folder_results + "comparison_clamped_free_roll_up.gif"
+# )
 
-# Show the animation
+time_instants = [j*1/5 for j in range(6)]
+time_indices = [j for j in range(n_steps+1) if j*dt in time_instants]
+
+norm_free = Normalize(vmin=jnp.min(moment_sol_free), vmax=jnp.max(moment_sol_free))
+norm_clamped = Normalize(vmin=jnp.min(moment_sol_clamped), vmax=jnp.max(moment_sol_clamped))
+
+fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+for j in time_indices:
+    x_nodes_free = position_sol_free[0, :, j]
+    y_nodes_free = position_sol_free[1, :, j]
+    
+    # Create segments between nodes
+    segments_free = jnp.array([[ [x_nodes_free[i], y_nodes_free[i]], [x_nodes_free[i+1], y_nodes_free[i+1]] ] 
+                         for i in range(x_nodes_free.size - 1)])
+    
+    # Color by bending moment
+    colors_free = moment_sol_free[:, j]  # shape: (n_elements,)
+    
+    lc_free = LineCollection(segments_free, array=colors_free, cmap='viridis', linewidths=2, norm=norm_free)
+
+    axs[0].add_collection(lc_free)
+
+    x_nodes_clamped = position_sol_clamped[0, :, j]
+    y_nodes_clamped = position_sol_clamped[1, :, j]
+    
+    # Create segments between nodes
+    segments_clamped = jnp.array([[[x_nodes_clamped[i], y_nodes_clamped[i]], 
+                                   [x_nodes_clamped[i+1], y_nodes_clamped[i+1]] ] 
+                                   for i in range(x_nodes_clamped.size - 1)])
+    
+    # Color by bending moment
+    colors_clamped = moment_sol_clamped[:, j]  # shape: (n_elements,)
+    
+    lc_clamped = LineCollection(segments_clamped, array=colors_clamped, cmap='viridis', linewidths=2, norm=norm_clamped)
+    
+    axs[1].add_collection(lc_clamped)
+
+axs[0].set_xlabel('x')
+axs[0].set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+axs[0].grid(True)
+
+# Create a colorbar axis that matches the y-axis height
+divider_free = make_axes_locatable(axs[0])
+cax = divider_free.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+cbar_free = fig.colorbar(lc_free, cax=cax)
+cbar_free.set_label('$M$ Free')
+
+axs[0].set_xlim(-2.5, 10.5)
+axs[0].set_ylim(-0.5, 8)
+axs[0].set_aspect("equal", adjustable="box")
+
+axs[1].set_xlabel('x')
+axs[1].set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+axs[1].grid(True)
+
+# Create a colorbar axis that matches the y-axis height
+divider_clamped = make_axes_locatable(axs[1])
+cax = divider_clamped.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+cbar_clamped = fig.colorbar(lc_clamped, cax=cax)
+cbar_clamped.set_label('$M$ Clamped')
+
+axs[1].set_xlim(-2.5, 10.5)
+axs[1].set_ylim(-0.5, 8)
+axs[1].set_aspect("equal", adjustable="box")
+
+fig.tight_layout()
+fig.savefig(folder_results + "configurations.pdf", format="pdf")
+
+
 plt.show()
-
-
-
-# time_instants = [j*1/5 for j in range(6)]
-# time_indices = [j for j in range(n_steps+1) if j*dt in time_instants]
-
-# norm_free = Normalize(vmin=jnp.min(moment_sol_free), vmax=jnp.max(moment_sol_free))
-# norm_clamped = Normalize(vmin=jnp.min(moment_sol_clamped), vmax=jnp.max(moment_sol_clamped))
-
-# fig, axs = plt.subplots(1, 2, figsize=(10, 4))
-# for j in time_indices:
-#     x_nodes_free = position_sol_free[0, :, j]
-#     y_nodes_free = position_sol_free[1, :, j]
-    
-#     # Create segments between nodes
-#     segments_free = jnp.array([[ [x_nodes_free[i], y_nodes_free[i]], [x_nodes_free[i+1], y_nodes_free[i+1]] ] 
-#                          for i in range(x_nodes_free.size - 1)])
-    
-#     # Color by bending moment
-#     colors_free = moment_sol_free[:, j]  # shape: (n_elements,)
-    
-#     lc_free = LineCollection(segments_free, array=colors_free, cmap='viridis', linewidths=2, norm=norm_free)
-
-#     axs[0].add_collection(lc_free)
-
-#     x_nodes_clamped = position_sol_clamped[0, :, j]
-#     y_nodes_clamped = position_sol_clamped[1, :, j]
-    
-#     # Create segments between nodes
-#     segments_clamped = jnp.array([[[x_nodes_clamped[i], y_nodes_clamped[i]], 
-#                                    [x_nodes_clamped[i+1], y_nodes_clamped[i+1]] ] 
-#                                    for i in range(x_nodes_clamped.size - 1)])
-    
-#     # Color by bending moment
-#     colors_clamped = moment_sol_clamped[:, j]  # shape: (n_elements,)
-    
-#     lc_clamped = LineCollection(segments_clamped, array=colors_clamped, cmap='viridis', linewidths=2, norm=norm_clamped)
-    
-#     axs[1].add_collection(lc_clamped)
-
-# axs[0].set_xlabel('x')
-# axs[0].set_ylabel('y')
-# # ax.set_title('Beam configurations over time')
-# axs[0].grid(True)
-
-# # Create a colorbar axis that matches the y-axis height
-# divider_free = make_axes_locatable(axs[0])
-# cax = divider_free.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-# cbar_free = fig.colorbar(lc_free, cax=cax)
-# cbar_free.set_label('$M$ Free')
-
-# axs[0].set_xlim(-2.5, 10.5)
-# axs[0].set_ylim(-0.5, 8)
-# axs[0].set_aspect("equal", adjustable="box")
-
-# axs[1].set_xlabel('x')
-# axs[1].set_ylabel('y')
-# # ax.set_title('Beam configurations over time')
-# axs[1].grid(True)
-
-# # Create a colorbar axis that matches the y-axis height
-# divider_clamped = make_axes_locatable(axs[1])
-# cax = divider_clamped.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-# cbar_clamped = fig.colorbar(lc_clamped, cax=cax)
-# cbar_clamped.set_label('$M$ Clamped')
-
-# axs[1].set_xlim(-2.5, 10.5)
-# axs[1].set_ylim(-0.5, 8)
-# axs[1].set_aspect("equal", adjustable="box")
-
-# fig.tight_layout()
-# fig.savefig(folder_results + "configurations.pdf", format="pdf")
-
-
-# plt.show()

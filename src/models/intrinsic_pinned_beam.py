@@ -150,19 +150,21 @@ class IntrinsicPlanarPinnedBeam(IntrinsicBeam):
     
 
     @partial(jax.jit, static_argnums=0)
-    def assemble_gravity(self, theta_vector: jnp.ndarray, g = 9.81) -> jnp.ndarray:
+    def assemble_gravity(self, theta_vector: jnp.ndarray, g = 9.81, n_gauss_points: int = 2) -> jnp.ndarray:
         
         gravity_midpoints_values = - self.density_unit_length * g * jnp.ones(self.n_elem)
 
         material_gravity_field_x = assemble_nontrilinear_scalar_form_dg(self.x_nodes, 
                                                                         theta_vector, 
                                                                         gravity_midpoints_values, 
-                                                                        jnp.sin)
+                                                                        jnp.sin,
+                                                                        n_gauss_points=n_gauss_points)
         
         material_gravity_field_y = assemble_nontrilinear_scalar_form_dg(self.x_nodes, 
                                                                         theta_vector, 
                                                                         gravity_midpoints_values, 
-                                                                        jnp.cos)
+                                                                        jnp.cos,
+                                                                        n_gauss_points=n_gauss_points)
         
         gravity_vector_field = jnp.zeros(self.n_coenergy)
 
@@ -186,7 +188,8 @@ class IntrinsicPlanarPinnedBeam(IntrinsicBeam):
 
 
     @partial(jax.jit, static_argnums=0)
-    def vector_field_positions(self, theta_vector: jnp.ndarray, lin_velocity_vector: jnp.ndarray) -> jnp.ndarray:
+    def vector_field_positions(self, theta_vector: jnp.ndarray, 
+                               lin_velocity_vector: jnp.ndarray, n_gauss_points=2) -> jnp.ndarray:
         """
         Compute the vector field for the spatial positions of the beam points 
         f(theta, v) = R(theta) * v
@@ -195,11 +198,15 @@ class IntrinsicPlanarPinnedBeam(IntrinsicBeam):
         vel_x = lin_velocity_vector[:self.n_lin_vel_x]
         vel_y = lin_velocity_vector[self.n_lin_vel_x:self.n_lin_vel]
 
-        vector_field_x = + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_x, jnp.cos) \
-                         - assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_y, jnp.sin)
+        vector_field_x = + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, 
+                                                                vel_x, jnp.cos, n_gauss_points=n_gauss_points) \
+                         - assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, 
+                                                                vel_y, jnp.sin, n_gauss_points=n_gauss_points)
         
-        vector_field_y = + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_x, jnp.sin) \
-                         + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, vel_y, jnp.cos)
+        vector_field_y = + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, 
+                                                                vel_x, jnp.sin, n_gauss_points=n_gauss_points) \
+                         + assemble_nontrilinear_scalar_form_dg(self.x_nodes, theta_vector, 
+                                                                vel_y, jnp.cos, n_gauss_points=n_gauss_points)
         
         return jnp.concatenate([vector_field_x, vector_field_y])
     

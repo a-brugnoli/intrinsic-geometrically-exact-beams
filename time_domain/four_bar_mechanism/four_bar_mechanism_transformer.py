@@ -4,7 +4,7 @@ from data import material_props, material_props_2, \
     theta_1_0, theta_2_0, theta_3_0, \
     n_elem_1, n_elem_2, n_elem_3, \
     point_A_0, point_B_0, point_C_0, \
-    g, A, rho, dt, T_end
+    dt, T_end
 import jax.numpy as jnp
 import numpy as np
 import jax, os
@@ -199,7 +199,7 @@ state_vector_0 = jnp.concatenate([x_0, lambda_0])
 n_steps = int(T_end/dt)
 time_vec = dt * jnp.arange(n_steps + 1)
 
-# # Does nnot work because of the constraints that are not exactly preserved
+# # Does not ensure that the constraints that are not exactly preserved
 trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field, method="midpoint")
 
 # trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
@@ -379,7 +379,6 @@ if n_plot<n_steps:
     step_plot = n_steps//n_plot
 else:
     step_plot=1
-time_vec = time_vec[::step_plot]
 
 time_vec_plot = time_vec[::step_plot]
 position_1_plot = position_1_sol[:, :, ::step_plot]

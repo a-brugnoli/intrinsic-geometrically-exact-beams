@@ -41,7 +41,6 @@ nu = 0.3
 G = E/(2*(1+nu))        # Shear modulus (Pa)
 G_2 = E_2/(2*(1+nu))   
 rho = 2710              # Density (kg/m³)
-g = 9.81  # Gravitational acceleration (m/s²)
 
 geometrical_props_1 = {
     'L': L_1,           # Length of the beam

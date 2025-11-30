@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from src.postprocessing.animate import animate_overlay_beam_deformation
-from src.postprocessing.postprocess_variables import compute_beam_positions, implicit_midpoint_integrate
+from src.postprocessing.postprocess_variables import implicit_midpoint_integrate
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 
@@ -42,7 +42,7 @@ H_matrix = jax.scipy.linalg.block_diag(H_matrix_beam, H_matrix_end_mass)
 E_matrix = jax.scipy.linalg.block_diag(jnp.eye(pinned_beam.n_ang_vel), H_matrix)
 
 jax.jit
-def vector_field(state_vector, t):
+def vector_field(t, state_vector):
     theta_vector_beam = state_vector[:pinned_beam.n_ang_vel]
 
     # To convert from spatial to material the transpose of the rotation matrix has to be taken
@@ -177,57 +177,59 @@ position_midpoint_x = 0.5*(position_nodes_x[1:] + position_nodes_x[:-1])
 position_nodes_y = y_A + pinned_beam.x_nodes * jnp.sin(theta_beam_sol[:, 0])
 position_midpoint_y = 0.5*(position_nodes_y[1:] + position_nodes_y[:-1])
 
-initial_position = jnp.stack([position_midpoint_x,
-                              position_midpoint_y], axis=1)
+initial_position = jnp.concatenate([position_midpoint_x,
+                                    position_midpoint_y])
 
-position_beam_sol = compute_beam_positions(theta_beam_sol, lin_velocity_sol, initial_position, time_vec)
+position_beam_sol = pinned_beam.compute_positions(theta_beam_sol, 
+                                                       lin_velocity_sol, 
+                                                       initial_position, 
+                                                       time_vec)
 
 dual_animation = animate_overlay_beam_deformation(time_vec, [position_beam_sol, \
                                                   position_end_mass_sol.reshape(2, 1, -1)], \
                                  labels=('Beam', 'Mass'),
                                  save_path=folder_results + f"PendulumMass.gif")
 
+
+# Maximum time to plot
+T_max = 15
+
+# Determine which indices correspond to t <= T_max
+time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
+
+norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
+
+fig, ax = plt.subplots()
+for j in time_indices:
+    x_nodes = position_beam_sol[0, :, j]
+    y_nodes = position_beam_sol[1, :, j]
+    
+    # Create segments between nodes
+    segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
+                         for i in range(x_nodes.size - 1)])
+    
+    # Color by bending moment
+    colors = moment_sol[:, j]  # shape: (n_elements,)
+    
+    lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
+    plt.gca().add_collection(lc)
+
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+ax.grid(True)
+
+# Create a colorbar axis that matches the y-axis height
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+cbar = fig.colorbar(lc, cax=cax)
+cbar.set_label('$M$')
+
+
+ax.set_xlim(-1.1*beam_length, 1.1*beam_length)
+ax.set_ylim(-1.1*beam_length, 0.1*beam_length)
+ax.set_aspect("equal", adjustable="box")
+
+fig.tight_layout()
+fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 plt.show()
-
-# # Maximum time to plot
-# T_max = 15
-
-# # Determine which indices correspond to t <= T_max
-# time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
-
-# norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
-
-# fig, ax = plt.subplots()
-# for j in time_indices:
-#     x_nodes = position_beam_sol[0, :, j]
-#     y_nodes = position_beam_sol[1, :, j]
-    
-#     # Create segments between nodes
-#     segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
-#                          for i in range(x_nodes.size - 1)])
-    
-#     # Color by bending moment
-#     colors = moment_sol[:, j]  # shape: (n_elements,)
-    
-#     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
-#     plt.gca().add_collection(lc)
-
-# ax.set_xlabel('x')
-# ax.set_ylabel('y')
-# # ax.set_title('Beam configurations over time')
-# ax.grid(True)
-
-# # Create a colorbar axis that matches the y-axis height
-# divider = make_axes_locatable(ax)
-# cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-# cbar = fig.colorbar(lc, cax=cax)
-# cbar.set_label('$M$')
-
-
-# ax.set_xlim(-1.1*beam_length, 1.1*beam_length)
-# ax.set_ylim(-1.1*beam_length, 0.1*beam_length)
-# ax.set_aspect("equal", adjustable="box")
-
-# fig.tight_layout()
-# fig.savefig(folder_results + "Configurations.pdf", format="pdf")
-# plt.show()

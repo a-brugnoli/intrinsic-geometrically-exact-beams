@@ -8,15 +8,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
-import numpy as np  
-from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 
 import os
 from jax import config; config.update("jax_enable_x64", True)
-
-
 
 dt = 0.2
 n_elements = 16  # Number of finite elements
@@ -111,34 +107,33 @@ clamped_half_x_midpoints = 0.5 * (clamped_half.x_nodes[:-1] + clamped_half.x_nod
 free_half_x_midpoints = 0.5 * (free_half.x_nodes[:-1] + free_half.x_nodes[1:])
 free_half_x_midpoints = free_half_x_midpoints + clamped_half.L
 
-# initial_position = jnp.stack([jnp.hstack((clamped_half_x_midpoints, clamped_half.L + free_half.x_nodes)),
-#                               jnp.zeros(cantilever_beam.n_ang_vel)], axis=1)
-# position_sol = compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
+initial_position_clamped = jnp.concatenate([clamped_half_x_midpoints,
+                                      jnp.zeros(clamped_half.n_ang_vel)])
+position_sol_clamped = clamped_half.compute_positions(theta_sol_clamped, 
+                                                           lin_velocity_sol_clamped, 
+                                                           initial_position_clamped, 
+                                                           time_vec)
 
-initial_position_clamped = jnp.stack([clamped_half_x_midpoints,
-                                      jnp.zeros(clamped_half.n_ang_vel)], axis=1)
-position_sol_clamped = compute_beam_positions(theta_sol_clamped, lin_velocity_sol_clamped, initial_position_clamped, time_vec)
+initial_position_free = jnp.concatenate([free_half.x_nodes + clamped_half.L,
+                                   jnp.zeros(free_half.n_ang_vel)])
+position_sol_free = free_half.compute_positions(theta_sol_free, 
+                                                     lin_velocity_sol_free, 
+                                                     initial_position_free, 
+                                                     time_vec)
 
-initial_position_free = jnp.stack([free_half.x_nodes + clamped_half.L,
-                                   jnp.zeros(free_half.n_ang_vel)], axis=1)
-position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free, initial_position_free, time_vec)
 
-
-# # Create and display animation
-# # from src.postprocessing.animate import animate_overlay_beam_deformation
-# # print("Creating animation...")
-# # anim = animate_overlay_beam_deformation(
-# #     time_vec, position_sol_clamped, position_sol_free,
-# #     fps=5, interval=100,
-# #     title="Comparison: clamped and free formulations roll-up",
-# #     colors=('blue', 'red'),
-# #     labels=('Clamped', 'Free'),
-# #     lock_at_end=True,
-# #     save_path=folder_results + "interconnection_roll_up.gif"
-# # )
-
-# # Show the animation
-# # plt.show()
+# Create and display animation
+from src.postprocessing.animate import animate_overlay_beam_deformation
+print("Creating animation...")
+anim = animate_overlay_beam_deformation(
+    time_vec, [position_sol_clamped, position_sol_free],
+    fps=5, interval=100,
+    title="Comparison: clamped and free formulations roll-up",
+    colors=('blue', 'red'),
+    labels=('Clamped', 'Free'),
+    lock_at_end=True,
+    save_path=folder_results + "interconnection_roll_up.gif"
+)
 
 
 # plt.figure(figsize=(8, 6))
@@ -149,7 +144,6 @@ position_sol_free = compute_beam_positions(theta_sol_free, lin_velocity_sol_free
 # plt.title('Bending Moment Distribution at Final Time')
 # plt.legend()
 # plt.grid()
-# plt.show()
 
 time_instants = [j*1/5 for j in range(6)]
 time_indices = [j for j in range(n_steps+1) if j*dt in time_instants]

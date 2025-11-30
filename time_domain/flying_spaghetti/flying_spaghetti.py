@@ -9,7 +9,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
-from src.postprocessing.postprocess_variables import compute_beam_positions
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 
@@ -124,10 +123,10 @@ moment_sol = coenergy_sol[idx_moment:, :]
 point_A = jnp.array([0, 8])
 x_A, y_A = point_A
 
-initial_position = jnp.stack([x_A + free_beam.x_nodes * jnp.cos(theta_sol[:, 0]),
-                                    y_A + free_beam.x_nodes * jnp.sin(theta_sol[:, 0])], axis=1)
+initial_position = jnp.concatenate([x_A + free_beam.x_nodes * jnp.cos(theta_sol[:, 0]),
+                                    y_A + free_beam.x_nodes * jnp.sin(theta_sol[:, 0])])
 
-position_sol = compute_beam_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
+position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
 
 
 # Maximum time to plot
