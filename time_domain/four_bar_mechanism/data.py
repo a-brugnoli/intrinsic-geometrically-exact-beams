@@ -9,10 +9,6 @@ E_2 = 2.1e8
 # dt = 0.02
 # E_2 = 2.1e11
 
-# n_elem_1 = 10
-# n_elem_2 = 6
-# n_elem_3 = 6
-
 n_elem_1 = 10
 n_elem_2 = 6
 n_elem_3 = 6

@@ -150,6 +150,44 @@ class IntrinsicPlanarClampedBeam(IntrinsicBeam):
         return B
     
 
+
+    @partial(jax.jit, static_argnums=0)
+    def assemble_gravity(self, theta_vector: jnp.ndarray, g = 9.81) -> jnp.ndarray:
+        
+        gravity_midpoints_values = - self.density_unit_length * g * jnp.ones(self.n_elem)
+
+        material_gravity_field_x = assemble_nontrilinear_scalar_form_dg(self.x_nodes, 
+                                                                        theta_vector, 
+                                                                        gravity_midpoints_values, 
+                                                                        jnp.sin)
+        
+        material_gravity_field_y = assemble_nontrilinear_scalar_form_dg(self.x_nodes, 
+                                                                        theta_vector, 
+                                                                        gravity_midpoints_values, 
+                                                                        jnp.cos)
+        
+        gravity_vector_field = jnp.zeros(self.n_coenergy)
+
+        gravity_vector_field = gravity_vector_field.at[:self.n_lin_vel_x].set(material_gravity_field_x)
+        gravity_vector_field = gravity_vector_field.at[self.n_lin_vel_x:self.n_lin_vel].set(material_gravity_field_y)
+
+        return gravity_vector_field
+    
+
+    @partial(jax.jit, static_argnums=0)
+    def compute_potential_energy(self, y_positions, g=9.81):
+        """"
+        Compute the potential energy
+        Parameters:
+        -----------
+        y_positions : jnp.ndarray
+            The positions of the beam at midpoints (N_elements, N_times)
+        """
+        
+        return jnp.sum(self.h_mesh * self.density_unit_length * g * y_positions, axis=0)  
+
+    
+
     def vector_field_positions(self, theta_vector: jnp.ndarray, lin_velocity_vector: jnp.ndarray) -> jnp.ndarray:
         """
         Compute the vector field for the spatial positions of the beam points 

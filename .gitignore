@@ -21,9 +21,9 @@ dist/
 *.log
 
 # Pdf
-*.pdf
+# *.pdf
 #.mp4
-*.mp4
+# *.mp4
 
 # Jupyter
 .ipynb_checkpoints/

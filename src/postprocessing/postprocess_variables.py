@@ -76,60 +76,6 @@ def compute_beam_positions(theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray
     return position_sol
 
 
-@partial(jax.jit, static_argnums=0)
-def compute_consistent_beam_positions(beam_class: IntrinsicBeam, theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
-                        initial_position: jnp.ndarray, time_sol: jnp.ndarray):
-    """
-    Compute the spatial positions of 2D beam points or midpoints over time given
-    the angular displacements and linear velocities (in body frame).
-
-    Parameters:
-    -----------
-    beam_class: instance of the beam model class (IntrinsicPinnedBeam or IntrinsicFreeBeam)
-    theta_sol: jnp.ndarray of shape (n_nodes, n_times) or (n_elem, n_times)
-        Angular displacements over time.
-    lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times) or (2*n_elem, n_times)
-        Linear velocities over time in body frame.
-    initial_position: jnp.ndarray of shape (2*n_nodes,) or (2*n_elem,)
-        Initial spatial positions of the beam points.
-    time_sol: jnp.ndarray of shape (n_times,)
-        Time vector.    
-    """
-    
-    assert theta_sol.shape[-1] == lin_velocity_sol.shape[-1] and theta_sol.shape[-1]==time_sol.shape[0], \
-        f"Temporal dimension mismatch: theta_sol.shape[-1]={theta_sol.shape[-1]} != lin_velocity_sol.shape[-1]={lin_velocity_sol.shape[-1]}"
-    
-    dt_vec = time_sol[1:] - time_sol[:-1]
-    n_steps = time_sol.shape[0] - 1
-
-    position_sol = jnp.zeros_like(lin_velocity_sol) 
-
-    position_sol = position_sol.at[:, 0].set(initial_position)
-
-    mass_matrix_positions = beam_class.mass_matrix_positions()  # shape (n_pos, n_pos)
-
-    def integration_position(position_prev, ii):
-
-        theta_mid = (theta_sol[:, ii] + theta_sol[:, ii+1]) / 2        # shape (N,)
-        velocity_mid = (lin_velocity_sol[:, ii] + lin_velocity_sol[:, ii+1]) / 2  # shape (N)
-
-        positions_vector_field_mid = beam_class.vector_field_positions(theta_mid, velocity_mid)
-
-        position_next = position_prev + dt_vec[ii] * jnp.linalg.solve(mass_matrix_positions, 
-                                                                      positions_vector_field_mid)
-
-        
-        return position_next, position_next
-
-    _, positions = jax.lax.scan(integration_position, initial_position, jnp.arange(n_steps))
-    # Concatenate initial position to match original shape (2, N, n_steps+1)
-    position_sol = jnp.concatenate([initial_position.reshape(-1, 1), positions.T], axis=1)
-
-    N = position_sol.shape[0] // 2
-
-    return position_sol.reshape(2, N, position_sol.shape[1])
-
-
 
 def implicit_midpoint_integrate(v, dt, x0=None):
     """
