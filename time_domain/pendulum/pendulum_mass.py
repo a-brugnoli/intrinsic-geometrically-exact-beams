@@ -192,12 +192,12 @@ dual_animation = animate_overlay_beam_deformation(time_vec, [position_beam_sol, 
 
 
 # Maximum time to plot
-T_max = 15
+T_max = T_end
 
 # Determine which indices correspond to t <= T_max
 time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
 
-norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
+norm = Normalize(vmin=0, vmax=T_max)
 
 fig, ax = plt.subplots()
 for j in time_indices:
@@ -209,10 +209,17 @@ for j in time_indices:
                          for i in range(x_nodes.size - 1)])
     
     # Color by bending moment
-    colors = moment_sol[:, j]  # shape: (n_elements,)
-    
+    # colors = moment_sol[:, j]  # shape: (n_elements,)
+
+    colors = jnp.full(x_nodes.size - 1, j*dt)
+
     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
     plt.gca().add_collection(lc)
+
+    # --- NEW: add point mass ---
+    x_m = float(position_end_mass_sol[0, j])
+    y_m = float(position_end_mass_sol[1, j])
+    ax.scatter(x_m, y_m, c='red', s=50, zorder=5)  # marker size/colour adjustable
 
 ax.set_xlabel('x')
 ax.set_ylabel('y')
@@ -223,8 +230,8 @@ ax.grid(True)
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
 cbar = fig.colorbar(lc, cax=cax)
-cbar.set_label('$M$')
-
+# cbar.set_label('$M$')
+cbar.set_label('$t$')
 
 ax.set_xlim(-1.1*beam_length, 1.1*beam_length)
 ax.set_ylim(-1.1*beam_length, 0.1*beam_length)

@@ -198,5 +198,5 @@ ax.set_ylim(-1, 8)
 ax.set_aspect("equal", adjustable="box")
 
 fig.tight_layout()
-fig.savefig(folder_results + "Configurations.pdf", format="pdf")
+fig.savefig(folder_results + "ConfigurationsInterconnection.pdf", format="pdf")
 plt.show()
