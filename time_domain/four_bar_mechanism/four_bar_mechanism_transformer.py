@@ -4,9 +4,8 @@ from data import material_props, material_props_2, \
     theta_1_0, theta_2_0, theta_3_0, \
     n_elem_1, n_elem_2, n_elem_3, \
     point_A_0, point_B_0, point_C_0, \
-    dt, T_end
+    dt_transf, T_end
 import jax.numpy as jnp
-import numpy as np
 import jax, os
 from src.time_integration.utilities import simulate, \
         simulate_exact_constraints, compute_lambda0
@@ -196,17 +195,14 @@ x_0 = jnp.concatenate([angle_vector_0,
 lambda_0 =  compute_lambda0(IH_matrix, dynamics_vector_field, constraints_matrix, x_0)
 state_vector_0 = jnp.concatenate([x_0, lambda_0])
 
-n_steps = int(T_end/dt)
-time_vec = dt * jnp.arange(n_steps + 1)
+n_steps = int(T_end/dt_transf)
+time_vec = dt_transf * jnp.arange(n_steps + 1)
 
-# # Does not ensure that the constraints that are not exactly preserved
-trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field, method="midpoint")
+# # Does not ensure that the constraints are exactly preserved
+trajectory = simulate(state_vector_0, dt_transf, n_steps, E_matrix, vector_field, method="midpoint")
 
 # trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
 #              IH_matrix, dynamics_vector_field, constraints_matrix, method="crank_nicolson")
-
-# trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
-#              IH_matrix, dynamics_vector_field, constraints_matrix, method="backward_euler")
 
 theta_1_sol = trajectory[:beam_1.n_ang_vel]
 theta_2_sol = trajectory[ind_theta_2:ind_theta_3]
@@ -227,7 +223,7 @@ y_points_1_t0 = y_A + beam_1.x_nodes * jnp.sin(theta_1_sol[:, 0])
 positions_1_t0 = jnp.concatenate([x_points_1_t0,
                                 y_points_1_t0])
 
-position_1_sol = beam_1.compute_beam_positions(theta_1_sol, 
+position_1_sol = beam_1.compute_positions(theta_1_sol, 
                                         lin_velocity_1_sol, 
                                         positions_1_t0, time_vec)
 
@@ -238,7 +234,7 @@ y_points_2_t0 = y_B + beam_2.x_nodes * jnp.sin(theta_2_sol[:, 0])
 positions_2_t0 = jnp.concatenate([x_points_2_t0,
                             y_points_2_t0])
 
-position_2_sol = beam_2.compute_beam_positions(theta_2_sol, 
+position_2_sol = beam_2.compute_positions(theta_2_sol, 
                                         lin_velocity_2_sol, 
                                         positions_2_t0, time_vec)
 
@@ -249,7 +245,7 @@ y_points_3_t0 = y_C + beam_3.x_nodes * jnp.sin(theta_3_sol[:, 0])
 positions_3_t0 = jnp.concatenate([x_points_3_t0,
                             y_points_3_t0])
 
-position_3_sol = beam_3.compute_beam_positions(theta_3_sol, 
+position_3_sol = beam_3.compute_positions(theta_3_sol, 
                                         lin_velocity_3_sol, 
                                         positions_3_t0, time_vec)
 

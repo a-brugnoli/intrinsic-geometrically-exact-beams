@@ -57,8 +57,8 @@ trajectory_pinned = simulate(state_vector_0_pinned, dt, n_steps, E_matrix_pinned
 theta_sol_pinned = trajectory_pinned[:pinned_beam.n_ang_vel]
 coenergy_sol_pinned = trajectory_pinned[pinned_beam.n_ang_vel:]
 
-x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_sol_pinned[:, 0])
-y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_sol_pinned[:, 0])
+x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_0)
+y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_0)
 x_midpoints_pinned_0 = 0.5*(x_points_pinned_0[1:] + x_points_pinned_0[:-1])
 y_midpoints_pinned_0 = 0.5*(y_points_pinned_0[1:] + y_points_pinned_0[:-1])
 

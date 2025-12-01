@@ -69,9 +69,9 @@ def vector_field(t, state_vector):
     return jnp.concatenate([vector_field_theta, vector_field_coenergy])
 
 
-alpha = jnp.atan2(-8, 6)
+theta_0 = jnp.atan2(-8, 6)
 
-angle_0 = alpha * jnp.ones(free_beam.n_ang_vel)
+angle_0 = theta_0 * jnp.ones(free_beam.n_ang_vel)
 coenergy_vector_0 = jnp.zeros(free_beam.n_coenergy)
 state_vector_0 = jnp.concatenate([angle_0, coenergy_vector_0])
 

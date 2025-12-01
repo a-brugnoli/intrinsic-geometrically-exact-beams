@@ -112,8 +112,8 @@ theta_sol_free = trajectory_free[:free_beam.n_ang_vel]
 coenergy_sol_free = trajectory_free[free_beam.n_ang_vel:-n_lambda]
 lagrange_sol_free = trajectory_free[-n_lambda:]
 
-x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_sol_pinned[:, 0])
-y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_sol_pinned[:, 0])
+x_points_pinned_0 = pinned_beam.x_nodes * jnp.cos(theta_0)
+y_points_pinned_0 = pinned_beam.x_nodes * jnp.sin(theta_0)
 x_midpoints_pinned_0 = 0.5*(x_points_pinned_0[1:] + x_points_pinned_0[:-1])
 y_midpoints_pinned_0 = 0.5*(y_points_pinned_0[1:] + y_points_pinned_0[:-1])
 
@@ -126,8 +126,8 @@ position_sol_pinned = pinned_beam.compute_positions(theta_sol_pinned,
                                                          initial_position_pinned, 
                                                          time_vec)
 
-x_points_free_0 = free_beam.x_nodes * jnp.cos(theta_sol_free[:, 0])
-y_points_free_0 = free_beam.x_nodes * jnp.sin(theta_sol_free[:, 0])
+x_points_free_0 = free_beam.x_nodes * jnp.cos(theta_0)
+y_points_free_0 = free_beam.x_nodes * jnp.sin(theta_0)
 
 initial_position_free = jnp.concatenate([x_points_free_0,
                                         y_points_free_0])

@@ -44,38 +44,6 @@ def simulate(x0, dt, num_steps, E, f: callable, method="midpoint"):
     return jnp.concatenate([x0.reshape(-1, 1), xs.T], axis=1)  
 
 
-@partial(jax.jit, static_argnums=[4, 5])
-def implicit_midpoint_splitting(xn, tn, h, E, f_intrinsic: callable, f_interconnection: callable):
-    """
-    Solves the dynamics
-    E ẋ = f_intrinsic(t, x) + f_interconnection(t, x),
-    using implicit midpoint rule for the intrinsic dynamics and Crank-Nicolson for the interconnection.
-    """    
-
-    def residual(x_):
-        return jnp.dot(E, x_-xn) - h * (f_intrinsic(tn + h/2, (x_ + xn)/2) \
-                                        + 0.5*f_interconnection(tn, xn) + 0.5*f_interconnection(tn + h, x_))
-
-    x0 = xn  # initial guess 
-    xn1, _ = newton_solver_jax(residual, x0)
-
-    return xn1
-
-
-@partial(jax.jit, static_argnums=[2, 4, 5])
-def simulate_splitting(x0, dt, num_steps, E, f_intrinsic: callable, f_interconnection: callable):
-    def step_fn(xn, i):
-        jax.debug.print(
-        "Progress time integration: {i} / {num_steps}", i=i, num_steps=num_steps
-    )
-        xnp1 = implicit_midpoint_splitting(xn, i*dt, dt, E, f_intrinsic, f_interconnection)
-        return xnp1, xnp1
-
-    _, xs = jax.lax.scan(step_fn, x0, jnp.arange(num_steps))
-
-    return jnp.concatenate([x0.reshape(-1, 1), xs.T], axis=1)  
-
-
 @partial(jax.jit, static_argnums=[5, 6])
 def implicit_midpoint_constraints_backward_euler(xn, lambdan, tn, h, E, f: callable, G: callable):
     """
@@ -201,18 +169,17 @@ def compute_lambda0(E, f: callable, G: callable, x0, t0=0):
     Dphi = jax.jacobian(Phi)(x0)       # (m×n)
 
     # E^{-1} f via linear solve
-    v_f = jnp.linalg.solve(E, f0)      # (n,)
+    Einvf0 = jnp.linalg.solve(E, f0)      # (n,)
 
     # E^{-1} G via linear solve for all columns
-    v_G = jnp.linalg.solve(E, G0)      # (n×m)
+    EinvG0 = jnp.linalg.solve(E, G0)      # (n×m)
 
     # Build linear system A λ = b
-    A = Dphi @ v_G                     # (m×m)
-    b = -Dphi @ v_f                    # (m,)
+    A = Dphi @ EinvG0                     # (m×m)
+    b = -Dphi @ Einvf0                    # (m,)
 
     # Solve A λ = b
     if A.shape[0] == A.shape[1]:
-        # square system: try solve, fallback to lsts
         lambda0 = jnp.linalg.solve(A, b)
     else:
         raise Error("Non-square system for initial multipliers")

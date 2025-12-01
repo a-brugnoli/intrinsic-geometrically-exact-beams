@@ -130,7 +130,7 @@ def newton_solver_fd(fz_func, z0, tol=1e-12, max_iter=20, eps=None):
 
 
 @partial(jax.jit, static_argnums=0)
-def newton_solver_jax(fz_func, z0, tol=1e-10, max_iter=50):
+def newton_solver_jax(fz_func, z0, tol=1e-12, max_iter=20):
     """
     Solves a nonlinear equation using Newton's method in JAX.
 
@@ -186,8 +186,8 @@ def newton_solver_jax(fz_func, z0, tol=1e-10, max_iter=50):
 
     return z_final, final_residual
 
-# if __name__ == "__main__":
-#     # Example usage
-#     D = jnp.array([[1., 2.], [3., 4.]])
-#     S = skew_block_matrix(D)
-#     print(S)
+if __name__ == "__main__":
+    # Example usage
+    D = jnp.array([[1., 2.], [3., 4.]])
+    S = skew_block_matrix(D)
+    print(S)
