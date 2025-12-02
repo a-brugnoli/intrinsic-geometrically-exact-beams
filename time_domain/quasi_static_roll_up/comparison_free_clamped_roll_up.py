@@ -166,71 +166,73 @@ time_instants = [j*1/5 for j in range(6)]
 time_indices = [j for j in range(n_steps+1) if j*dt in time_instants]
 
 norm_free = Normalize(vmin=jnp.min(moment_sol_free), vmax=jnp.max(moment_sol_free))
-norm_clamped = Normalize(vmin=jnp.min(moment_sol_clamped), vmax=jnp.max(moment_sol_clamped))
 
-fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+fig, ax = plt.subplots()
 for j in time_indices:
     x_nodes_free = position_sol_free[0, :, j]
     y_nodes_free = position_sol_free[1, :, j]
-    
     # Create segments between nodes
     segments_free = jnp.array([[ [x_nodes_free[i], y_nodes_free[i]], [x_nodes_free[i+1], y_nodes_free[i+1]] ] 
                          for i in range(x_nodes_free.size - 1)])
-    
     # Color by bending moment
     colors_free = moment_sol_free[:, j]  # shape: (n_elements,)
-    
     lc_free = LineCollection(segments_free, array=colors_free, cmap='viridis', linewidths=2, norm=norm_free)
+    ax.add_collection(lc_free)
 
-    axs[0].add_collection(lc_free)
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+ax.grid(True)
 
+# Create a colorbar axis that matches the y-axis height
+divider_free = make_axes_locatable(ax)
+cax = divider_free.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+cbar_free = fig.colorbar(lc_free, cax=cax)
+cbar_free.set_label('$M$')
+
+ax.set_xlim(-2.5, 10.5)
+ax.set_ylim(-0.5, 8)
+ax.set_aspect("equal", adjustable="box")
+ax.set_title('Free-free case')
+fig.tight_layout()
+fig.savefig(folder_results + "ConfigurationsFree.pdf", format="pdf")
+
+norm_clamped = Normalize(vmin=jnp.min(moment_sol_clamped), vmax=jnp.max(moment_sol_clamped))
+
+fig, ax = plt.subplots()
+for j in time_indices:
     x_nodes_clamped = position_sol_clamped[0, :, j]
     y_nodes_clamped = position_sol_clamped[1, :, j]
-    
     # Create segments between nodes
     segments_clamped = jnp.array([[[x_nodes_clamped[i], y_nodes_clamped[i]], 
                                    [x_nodes_clamped[i+1], y_nodes_clamped[i+1]] ] 
                                    for i in range(x_nodes_clamped.size - 1)])
-    
     # Color by bending moment
     colors_clamped = moment_sol_clamped[:, j]  # shape: (n_elements,)
-    
-    lc_clamped = LineCollection(segments_clamped, array=colors_clamped, cmap='viridis', linewidths=2, norm=norm_clamped)
-    
-    axs[1].add_collection(lc_clamped)
 
-axs[0].set_xlabel('x')
-axs[0].set_ylabel('y')
+    lc_clamped = LineCollection(segments_clamped, array=colors_clamped, 
+                                cmap='viridis', linewidths=2, norm=norm_clamped)
+    
+    ax.add_collection(lc_clamped)
+
+ax.set_xlabel('x')
+ax.set_ylabel('y')
 # ax.set_title('Beam configurations over time')
-axs[0].grid(True)
+ax.grid(True)
 
 # Create a colorbar axis that matches the y-axis height
-divider_free = make_axes_locatable(axs[0])
-cax = divider_free.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-cbar_free = fig.colorbar(lc_free, cax=cax)
-cbar_free.set_label('$M$ Free')
-
-axs[0].set_xlim(-2.5, 10.5)
-axs[0].set_ylim(-0.5, 8)
-axs[0].set_aspect("equal", adjustable="box")
-
-axs[1].set_xlabel('x')
-axs[1].set_ylabel('y')
-# ax.set_title('Beam configurations over time')
-axs[1].grid(True)
-
-# Create a colorbar axis that matches the y-axis height
-divider_clamped = make_axes_locatable(axs[1])
+divider_clamped = make_axes_locatable(ax)
 cax = divider_clamped.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
 cbar_clamped = fig.colorbar(lc_clamped, cax=cax)
-cbar_clamped.set_label('$M$ Clamped')
+cbar_clamped.set_label('$M$')
 
-axs[1].set_xlim(-2.5, 10.5)
-axs[1].set_ylim(-0.5, 8)
-axs[1].set_aspect("equal", adjustable="box")
+ax.set_xlim(-2.5, 10.5)
+ax.set_ylim(-0.5, 8)
+ax.set_aspect("equal", adjustable="box")
 
+ax.set_title('Clamped clamped case')
 fig.tight_layout()
-fig.savefig(folder_results + "configurations.pdf", format="pdf")
+fig.savefig(folder_results + "ConfigurationsClamped.pdf", format="pdf")
 
 
 plt.show()

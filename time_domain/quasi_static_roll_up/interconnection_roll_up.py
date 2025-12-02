@@ -15,7 +15,7 @@ import os
 from jax import config; config.update("jax_enable_x64", True)
 
 dt = 0.2
-n_elements = 16  # Number of finite elements
+n_elements = 8  # Number of finite elements
 
 T_end = 1
 n_steps = int(T_end/dt)
@@ -193,10 +193,11 @@ cbar_clamped.set_label('$M$')
 cbar_free = fig.colorbar(lc_free, cax=cax)
 cbar_free.set_label('$M$')
 
-ax.set_xlim(-5, 12)
-ax.set_ylim(-1, 8)
+ax.set_xlim(-2.5, 10.5)
+ax.set_ylim(-0.5, 8)
 ax.set_aspect("equal", adjustable="box")
 
+ax.set_title('Interconnected case')
 fig.tight_layout()
 fig.savefig(folder_results + "ConfigurationsInterconnection.pdf", format="pdf")
 plt.show()
