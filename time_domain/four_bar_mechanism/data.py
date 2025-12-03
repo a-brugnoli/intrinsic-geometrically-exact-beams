@@ -7,7 +7,8 @@ T_end = 10
 # dt_transf = 0.00025
 # E_2 = 2.1e8
 
-dt = 0.02
+dt_gyr = 0.02
+dt_transf = 0.02
 E_2 = 2.1e11
 
 n_elem_1 = 10

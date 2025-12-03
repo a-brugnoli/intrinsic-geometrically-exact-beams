@@ -1,4 +1,3 @@
-from mimetypes import init
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
 from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from data import material_props, material_props_2, \

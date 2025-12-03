@@ -1,8 +1,7 @@
-import time
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
 from data import geometrical_props, material_props, g, m_mass, beam_length
 import jax.numpy as jnp
-import jax
+import jax, os
 from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d
 import matplotlib.pyplot as plt
@@ -13,8 +12,6 @@ from src.postprocessing.animate import animate_overlay_beam_deformation
 from src.postprocessing.postprocess_variables import implicit_midpoint_integrate
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
-
-import os
 from jax import config; config.update("jax_enable_x64", True)
 
 # Setup output directory

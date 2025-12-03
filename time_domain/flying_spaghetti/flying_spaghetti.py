@@ -1,18 +1,15 @@
 from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from data import geometrical_props, material_props
 import jax.numpy as jnp
-import jax
+import jax, os
 from src.time_integration.utilities import simulate
 from src.rotations.utilities import rotation_matrix_2d
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
-
-import os
 from jax import config; config.update("jax_enable_x64", True)
 
 
