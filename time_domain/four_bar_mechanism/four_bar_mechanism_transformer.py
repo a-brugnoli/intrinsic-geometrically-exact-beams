@@ -201,8 +201,8 @@ time_vec = dt_transf * jnp.arange(n_steps + 1)
 # # Does not ensure that the constraints are exactly preserved
 trajectory = simulate(state_vector_0, dt_transf, n_steps, E_matrix, vector_field, method="midpoint")
 
-# trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
-#              IH_matrix, dynamics_vector_field, constraints_matrix, method="crank_nicolson")
+trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
+             IH_matrix, dynamics_vector_field, constraints_matrix, method="crank_nicolson")
 
 theta_1_sol = trajectory[:beam_1.n_ang_vel]
 theta_2_sol = trajectory[ind_theta_2:ind_theta_3]
