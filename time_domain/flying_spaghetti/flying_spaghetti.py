@@ -125,45 +125,59 @@ initial_position = jnp.concatenate([x_A + free_beam.x_nodes * jnp.cos(theta_sol[
 
 position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
 
+from src.postprocessing.animate import animate_beam_deformation
+time_vec_plot = time_vec[time_vec <= 7.5]
+position_plot = position_sol[:, :, time_vec <= 7.5]
 
-# Maximum time to plot
-T_max = 7.5
+print("Creating animation...")
+anim = animate_beam_deformation(
+    time_vec_plot, position_plot,
+    fps=25, interval=10,
+    title="Flying Spaghetti",
+    save_path=folder_results + f"FlyingSpaghetti.gif"
+)
 
-# Determine which indices correspond to t <= T_max
-time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
-
-norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
-
-fig, ax = plt.subplots()
-for j in time_indices:
-    x_nodes = position_sol[0, :, j]
-    y_nodes = position_sol[1, :, j]
-    
-    # Create segments between nodes
-    segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
-                         for i in range(x_nodes.size - 1)])
-    
-    # Color by bending moment
-    colors = moment_sol[:, j]  # shape: (n_elements,)
-    
-    lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
-    plt.gca().add_collection(lc)
-
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-# ax.set_title('Beam configurations over time')
-ax.grid(True)
-
-# Create a colorbar axis that matches the y-axis height
-divider = make_axes_locatable(ax)
-cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-cbar = fig.colorbar(lc, cax=cax)
-cbar.set_label('$M$')
-
-ax.set_xlim(-1, 18)
-ax.set_ylim(-1, 9)
-ax.set_aspect("equal", adjustable="box")
-
-fig.tight_layout()
-fig.savefig(folder_results + "Configurations.pdf", format="pdf")
 plt.show()
+
+
+# # Maximum time to plot
+# T_max = 7.5
+
+# # Determine which indices correspond to t <= T_max
+# time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
+
+# norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
+
+# fig, ax = plt.subplots()
+# for j in time_indices:
+#     x_nodes = position_sol[0, :, j]
+#     y_nodes = position_sol[1, :, j]
+    
+#     # Create segments between nodes
+#     segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
+#                          for i in range(x_nodes.size - 1)])
+    
+#     # Color by bending moment
+#     colors = moment_sol[:, j]  # shape: (n_elements,)
+    
+#     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
+#     plt.gca().add_collection(lc)
+
+# ax.set_xlabel('x')
+# ax.set_ylabel('y')
+# # ax.set_title('Beam configurations over time')
+# ax.grid(True)
+
+# # Create a colorbar axis that matches the y-axis height
+# divider = make_axes_locatable(ax)
+# cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
+# cbar = fig.colorbar(lc, cax=cax)
+# cbar.set_label('$M$')
+
+# ax.set_xlim(-1, 18)
+# ax.set_ylim(-1, 9)
+# ax.set_aspect("equal", adjustable="box")
+
+# fig.tight_layout()
+# fig.savefig(folder_results + "Configurations.pdf", format="pdf")
+# plt.show()
