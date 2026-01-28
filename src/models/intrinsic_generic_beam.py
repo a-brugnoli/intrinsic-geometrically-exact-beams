@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 import jax.numpy as jnp
 import jax
 from functools import partial
-from src.rotations.utilities import rotation_matrix_2d_batch
-
+from src.linear_algebra.la_jax import skew_block_matrix
+from src.fem.matrices_assembly import mass_matrix_lagrange
 
 class IntrinsicBeam(ABC):
     """
@@ -137,9 +137,9 @@ class IntrinsicBeam(ABC):
 
 
     @partial(jax.jit, static_argnums=0)
-    def compute_energies(self, state_sol: jnp.ndarray):
-        velocity_sol = state_sol[:self.n_vel, :]
-        stress_sol = state_sol[self.n_vel:, :]
+    def compute_energies(self, coenergy_sol: jnp.ndarray):
+        velocity_sol = coenergy_sol[:self.n_vel, :]
+        stress_sol = coenergy_sol[self.n_vel:, :]
 
         H_matrix = self.assemble_energy_matrix()
 
@@ -147,12 +147,13 @@ class IntrinsicBeam(ABC):
         H_stress = H_matrix[self.n_vel:, self.n_vel:]
 
         # Compute column-wise quadratic forms
-        energy_vec = 0.5 * jnp.sum(state_sol *  (H_matrix @ state_sol), axis=0)  
+        energy_vec = 0.5 * jnp.sum(coenergy_sol *  (H_matrix @ coenergy_sol), axis=0)  
         kinetic_energy_vec = 0.5 * jnp.sum(velocity_sol * (H_kinetic @ velocity_sol), axis=0)  
         deformation_energy_vec = 0.5 * jnp.sum(stress_sol * (H_stress @ stress_sol), axis=0)  
 
         return energy_vec, kinetic_energy_vec, deformation_energy_vec
     
+
 
     @abstractmethod
     def assemble_gravity(self, theta_vector: jnp.ndarray, g=9.81, n_gauss_points=2) -> jnp.ndarray:
@@ -173,6 +174,28 @@ class IntrinsicBeam(ABC):
         pass
 
 
+    @abstractmethod
+    def compute_angular_momentum(self, position_sol: jnp.ndarray,
+                                theta_vector: jnp.ndarray, 
+                                velocity_sol: jnp.ndarray,
+                                n_gauss_points=2) -> jnp.ndarray:
+        """
+        Docstring for compute_angular_momentum
+        position_sol: jnp.ndarray of shape (2, n_nodes, n_times) or (2, n_elem, n_times)
+            Angular displacements over time.
+        theta_sol: jnp.ndarray of shape (n_nodes, n_times) or (n_elem, n_times)
+            Angular displacements over time.
+        lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times) or (2*n_elem, n_times)
+            Linear velocities over time in body frame.
+        n_gauss_points: int
+            Number of gauss points for numerical integration.
+        Returns:
+        --------
+        angular_momentum_sol: jnp.ndarray of shape (n_times,)
+            Angular momentum over time. 
+        """
+        pass
+
     @partial(jax.jit, static_argnums=0)
     def compute_positions(self, theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
                         initial_position: jnp.ndarray, time_sol: jnp.ndarray):
@@ -182,7 +205,6 @@ class IntrinsicBeam(ABC):
 
         Parameters:
         -----------
-        beam_class: instance of the beam model class (IntrinsicPinnedBeam or IntrinsicFreeBeam)
         theta_sol: jnp.ndarray of shape (n_nodes, n_times) or (n_elem, n_times)
             Angular displacements over time.
         lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times) or (2*n_elem, n_times)

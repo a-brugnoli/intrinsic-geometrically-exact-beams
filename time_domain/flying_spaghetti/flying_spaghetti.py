@@ -125,17 +125,46 @@ initial_position = jnp.concatenate([x_A + free_beam.x_nodes * jnp.cos(theta_sol[
 
 position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
 
-from src.postprocessing.animate import animate_beam_deformation
-time_vec_plot = time_vec[time_vec <= 7.5]
-position_plot = position_sol[:, :, time_vec <= 7.5]
-
-print("Creating animation...")
-anim = animate_beam_deformation(
-    time_vec_plot, position_plot,
-    fps=25, interval=10,
-    title="Flying Spaghetti",
-    save_path=folder_results + f"FlyingSpaghetti.gif"
+# Angular momentum computation
+velocity_sol = coenergy_sol[:free_beam.n_vel, :]
+angular_momentum_sol = free_beam.compute_angular_momentum(
+    position_sol, theta_sol, velocity_sol, n_gauss_points=2
 )
+
+# Plot of angular momentum trend
+plt.figure()
+plt.plot(time_vec, angular_momentum_sol, 'r')
+plt.xlabel('Time (s)')
+plt.ylabel('J')
+plt.title('Angular Momentum vs Time')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(folder_results + f"AngularMomentum.pdf", format="pdf")
+
+
+# Plot of the angular momentum difference
+plt.figure()
+plt.plot(time_vec[1:], jnp.abs(jnp.diff(angular_momentum_sol)), 'r')
+plt.yscale('log')
+plt.xlabel('Time (s)')
+plt.ylabel('$|J(\mathbf{e}_{n+1}) - J(\mathbf{e}_{n})|$')
+plt.title('Delta Angular Momentum vs Time')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(folder_results + f"DeltaAngularMomentum.pdf", format="pdf")
+
+
+# from src.postprocessing.animate import animate_beam_deformation
+# time_vec_plot = time_vec[time_vec <= 7.5]
+# position_plot = position_sol[:, :, time_vec <= 7.5]
+
+# print("Creating animation...")
+# anim = animate_beam_deformation(
+#     time_vec_plot, position_plot,
+#     fps=25, interval=10,
+#     title="Flying Spaghetti",
+#     save_path=folder_results + f"FlyingSpaghetti.gif"
+# )
 
 plt.show()
 

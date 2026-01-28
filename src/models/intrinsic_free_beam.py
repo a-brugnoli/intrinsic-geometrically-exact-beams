@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+from numpy import r_
 from src.fem.triplet_scalar_form import assemble_nontrilinear_scalar_form_cg
 from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
 from src.fem.triplet_vector_form import assemble_2d_cross_form_cg, assemble_2d_cross_form_dg, \
@@ -186,7 +187,6 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
         return jnp.sum(self.density_unit_length * g * M_pos_y @ y_positions, axis=0)  
 
 
-    
     @partial(jax.jit, static_argnums=0)
     def vector_field_positions(self, theta_vector: jnp.ndarray, 
                                lin_velocity_vector: jnp.ndarray, n_gauss_points=2) -> jnp.ndarray:
@@ -227,3 +227,84 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
         )
 
         return M_positions
+    
+
+    @partial(jax.jit, static_argnums=0)
+    def compute_angular_momentum(self, position_sol: jnp.ndarray,
+                                theta_vector: jnp.ndarray, 
+                                velocity_sol: jnp.ndarray,
+                                n_gauss_points=2):
+        """
+        Docstring for compute_angular_momentum
+        position_sol: jnp.ndarray of shape (2, n_nodes, n_times) 
+            Angular displacements over time.
+        theta_sol: jnp.ndarray of shape (n_nodes, n_times) 
+            Angular displacements over time.
+        lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times)
+            Linear velocities over time in body frame.
+        n_gauss_points: int
+            Number of gauss points for numerical integration.
+        Returns:
+        --------
+        angular_momentum_sol: jnp.ndarray of shape (n_times,)
+            Angular momentum over time. 
+        """
+
+        lin_velocity_sol = velocity_sol[:self.n_lin_vel, :]
+        
+        n_times = position_sol.shape[2]
+        assert lin_velocity_sol.shape[1] == n_times, "Temporal dimension mismatch between position_sol and coenergy_sol"
+        assert theta_vector.shape[1] == n_times, "Temporal dimension mismatch between position_sol and theta_vector"
+        
+        assert position_sol.shape[0] == 2, "Position solution must have shape (2, n_nodes, n_times)"
+        assert position_sol.shape[1] == self.n_nodes, "Position solution must have n_nodes equal to beam nodes"   
+        assert lin_velocity_sol.shape[0] == 2 * self.n_nodes, "Linear velocity solution has incompatible shape with position solution"
+
+        ang_velocity_sol = velocity_sol[self.n_lin_vel:self.n_lin_vel + self.n_ang_vel, :]
+        M_omega = mass_matrix_lagrange(self.x_nodes, parameter=self.rotational_inertia) 
+        S_matrix = skew_block_matrix(jnp.eye(self.n_nodes))
+
+        def angular_momentum_single(theta_i, lin_vel_i, pos_i, ang_vel_i):
+            spatial_vel = self.vector_field_positions(
+                theta_i,
+                lin_vel_i,
+                n_gauss_points=n_gauss_points
+            )
+
+            r_i = pos_i.reshape(-1)
+
+            return (
+                self.density_unit_length * (r_i @ S_matrix @ spatial_vel)
+                + jnp.ones(self.n_nodes) @ M_omega @ ang_vel_i
+            )
+        
+        return jax.vmap(angular_momentum_single,
+                        in_axes=(1, 1, 2, 1)   # map over time axis
+                        )(
+                        theta_vector,
+                        lin_velocity_sol,
+                        position_sol,
+                        ang_velocity_sol
+                            )
+    
+        ## Non-vectorized version
+        
+        # angular_momentum_sol = jnp.zeros(n_times)
+        # for ii in range(n_times):
+
+        #     spatial_vel_ii = self.vector_field_positions(theta_vector[:, ii], 
+        #                                                 lin_velocity_sol[:, ii], 
+        #                                                 n_gauss_points=n_gauss_points)
+            
+        #     # r_x_ii = position_sol[0, :, ii]
+        #     # r_y_ii = position_sol[1, :, ii]
+        #     # r_ii = jnp.concatenate([r_x_ii, r_y_ii])  # shape (2*n_nodes,)
+
+        #     r_ii = position_sol[:, :, ii].reshape(-1)
+
+        #     angular_momentum_ii = self.density_unit_length * (r_ii.T @ S_matrix) @ spatial_vel_ii \
+        #         +jnp.ones(self.n_nodes).T @ M_omega @ ang_velocity_sol[:, ii]
+
+        #     angular_momentum_sol = angular_momentum_sol.at[ii].set(angular_momentum_ii)
+        # return angular_momentum_sol
+    
