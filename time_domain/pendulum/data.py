@@ -1,5 +1,7 @@
 # Beam and material parameters
 beam_length = 3.0443   # Total length (m)
+dt = 0.1 # Time step (s)
+T_end = 5  # End time (s)
 
 kappa = 1       # Shear correction factor
 A = 1           # Cross-sectional area (m²)

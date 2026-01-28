@@ -1,5 +1,5 @@
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
-from data import geometrical_props, material_props, g, m_mass, beam_length
+from data import geometrical_props, material_props, g, m_mass, beam_length, dt, T_end
 import jax.numpy as jnp
 import jax, os
 from src.time_integration.utilities import simulate
@@ -20,7 +20,7 @@ folder_results = path_file + "/results/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
-n_elements = 10  # Number of finite elements
+n_elements = 1  # Number of finite elements
 pinned_beam = IntrinsicPlanarPinnedBeam(n_elements, geometrical_props, material_props)
 
 # Matrices for the beam
@@ -78,9 +78,6 @@ state_vector_0 = jnp.concatenate([angle_beam_0, \
                                 coenergy_vector_beam_0, \
                                 inertial_velocity_end_mass_0])
 
-
-dt = 0.1
-T_end = 5
 n_steps = int(T_end/dt)
 time_vec = dt * jnp.arange(n_steps + 1)
 
@@ -115,8 +112,8 @@ plt.figure()
 plt.plot(time_vec, total_energy_vec, 'm', label='H')
 plt.plot(time_vec, kinetic_energy_vec, 'g', label='T')
 plt.plot(time_vec, potential_energy_vec, 'b', label='V')
-plt.xlabel('Time (s)')
-plt.ylabel('Energy (J)')
+plt.xlabel('Time [s]')
+plt.ylabel('Energy [J]')
 plt.title('Energy vs Time')
 plt.grid(True)
 plt.legend(loc="lower right")
@@ -126,8 +123,8 @@ plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 # Plot of energy rate
 plt.figure()
 plt.plot(time_vec, energy_rate)
-plt.xlabel('Time (s)')
-plt.ylabel('Energy rate (W)')
+plt.xlabel('Time [s]')
+plt.ylabel('$\dot{H}$')
 plt.title('Energy rate')
 plt.grid(True)
 plt.tight_layout()
@@ -135,7 +132,7 @@ plt.savefig(folder_results + f"Energy_rate.pdf", format="pdf")
 
 plt.figure()
 plt.plot(time_vec, theta_L_sol + jnp.pi/2)
-plt.xlabel('Time (s)')
+plt.xlabel('Time [s]')
 plt.ylabel('$\\theta(L,t)$')
 plt.title('End rotation vs Time')
 plt.grid(True)
@@ -144,7 +141,7 @@ plt.tight_layout()
 
 plt.figure()
 plt.plot(time_vec, omega_L_sol)
-plt.xlabel('Time (s)')
+plt.xlabel('Time [s]')
 plt.ylabel('$\omega(L,t)$')
 plt.title('End angular velocity vs Time')
 plt.grid(True)
@@ -153,7 +150,7 @@ plt.tight_layout()
 
 plt.figure()
 plt.plot(time_vec, inertial_velocity_end_mass_sol[1])
-plt.xlabel('Time (s)')
+plt.xlabel('Time [s]')
 plt.ylabel('$v_y$')
 plt.title('$v_y$ mass vs Time')
 plt.grid(True)

@@ -1,3 +1,4 @@
+from numpy import angle
 from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from data import geometrical_props, material_props
 import jax.numpy as jnp
@@ -91,8 +92,8 @@ plt.plot(time_vec, energy_vec, 'm', label='H')
 plt.plot(time_vec, kinetic_energy_vec, 'g', label='T')
 plt.plot(time_vec, deformation_energy_vec, 'b', label='V')
 plt.ylim(0, 400)
-plt.xlabel('Time (s)')
-plt.ylabel('Energy (J)')
+plt.xlabel('Time [s]')
+plt.ylabel('Energy [J]')
 plt.title('Energy vs Time')
 plt.grid(True)
 plt.legend(loc="lower right")
@@ -104,7 +105,7 @@ plt.figure()
 plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'm')
 plt.yscale('log')
 plt.ylim(1e-14, 1e2)
-plt.xlabel('Time (s)')
+plt.xlabel('Time [s]')
 plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
 plt.title('Delta Energy vs Time')
 plt.grid(True)
@@ -120,22 +121,28 @@ moment_sol = coenergy_sol[idx_moment:, :]
 point_A = jnp.array([0, 8])
 x_A, y_A = point_A
 
-initial_position = jnp.concatenate([x_A + free_beam.x_nodes * jnp.cos(theta_sol[:, 0]),
+initial_position_spatial = jnp.concatenate([x_A + free_beam.x_nodes * jnp.cos(theta_sol[:, 0]),
                                     y_A + free_beam.x_nodes * jnp.sin(theta_sol[:, 0])])
 
-position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_position, time_vec)
 
-# Angular momentum computation
+position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_position_spatial, time_vec)     
+# # Angular momentum computation
 velocity_sol = coenergy_sol[:free_beam.n_vel, :]
-angular_momentum_sol = free_beam.compute_angular_momentum(
+
+angular_momentum_sol = free_beam.compute_angular_momentum_spatial(
     position_sol, theta_sol, velocity_sol, n_gauss_points=2
 )
+
+# initial_position_material = jnp.linalg.solve(free_beam.mass_matrix_positions(),
+#                                              free_beam.vector_field_positions(-angle_0, initial_position_spatial))
+# angular_momentum_sol = free_beam.compute_angular_momentum_material(velocity_sol, 
+#                                     initial_position_material, dt)
 
 # Plot of angular momentum trend
 plt.figure()
 plt.plot(time_vec, angular_momentum_sol, 'r')
-plt.xlabel('Time (s)')
-plt.ylabel('$J_n \; (\mathrm{kg m^2/s})$')
+plt.xlabel('Time [s]')
+plt.ylabel('$J_n \; [\mathrm{kg m^2/s}]$')
 plt.title('Angular Momentum vs Time')
 plt.grid(True)
 plt.tight_layout()
@@ -146,7 +153,7 @@ plt.savefig(folder_results + f"AngularMomentum.pdf", format="pdf")
 plt.figure()
 plt.plot(time_vec[1:], jnp.abs(jnp.diff(angular_momentum_sol)), 'r')
 plt.yscale('log')
-plt.xlabel('Time (s)')
+plt.xlabel('Time [s]')
 plt.ylabel('$|J_{n+1} - J_n|$')
 plt.title('Delta Angular Momentum vs Time')
 plt.grid(True)
@@ -166,47 +173,52 @@ plt.savefig(folder_results + f"DeltaAngularMomentum.pdf", format="pdf")
 #     save_path=folder_results + f"FlyingSpaghetti.gif"
 # )
 
-plt.show()
 
+# Maximum time to plot
+T_max = 7.5
 
-# # Maximum time to plot
-# T_max = 7.5
+# Determine which indices correspond to t <= T_max
+time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
 
-# # Determine which indices correspond to t <= T_max
-# time_indices = [j for j in range(n_steps+1) if j*dt <= T_max and j % 5 == 0]
+norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
 
-# norm = Normalize(vmin=jnp.min(moment_sol), vmax=jnp.max(moment_sol))
-
-# fig, ax = plt.subplots()
-# for j in time_indices:
-#     x_nodes = position_sol[0, :, j]
-#     y_nodes = position_sol[1, :, j]
+fig, ax = plt.subplots()
+for j in time_indices:
+    x_nodes = position_sol[0, :, j]
+    y_nodes = position_sol[1, :, j]
     
-#     # Create segments between nodes
-#     segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
-#                          for i in range(x_nodes.size - 1)])
+    # Create segments between nodes
+    segments = jnp.array([[ [x_nodes[i], y_nodes[i]], [x_nodes[i+1], y_nodes[i+1]] ] 
+                         for i in range(x_nodes.size - 1)])
     
-#     # Color by bending moment
-#     colors = moment_sol[:, j]  # shape: (n_elements,)
+    # Color by bending moment
+    colors = moment_sol[:, j]  # shape: (n_elements,)
     
-#     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
-#     plt.gca().add_collection(lc)
+    lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
+    plt.gca().add_collection(lc)
 
-# ax.set_xlabel('x')
-# ax.set_ylabel('y')
-# # ax.set_title('Beam configurations over time')
-# ax.grid(True)
-
-# # Create a colorbar axis that matches the y-axis height
-# divider = make_axes_locatable(ax)
-# cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
-# cbar = fig.colorbar(lc, cax=cax)
-# cbar.set_label('$M$')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+# ax.set_title('Beam configurations over time')
+ax.grid(True)
 
 # ax.set_xlim(-1, 18)
 # ax.set_ylim(-1, 9)
-# ax.set_aspect("equal", adjustable="box")
+ax.set_aspect("equal", adjustable="box")
 
-# fig.tight_layout()
-# fig.savefig(folder_results + "Configurations.pdf", format="pdf")
-# plt.show()
+# Remove internal padding
+ax.margins(0)
+
+# Colorbar (tight)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="4%", pad=0.05)
+cbar = fig.colorbar(lc, cax=cax)
+cbar.set_label('$M$')
+
+fig.savefig(
+    folder_results + "Configurations.pdf",
+    format="pdf",
+    bbox_inches="tight",
+    pad_inches=0
+)
+plt.show()

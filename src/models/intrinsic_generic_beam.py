@@ -174,27 +174,27 @@ class IntrinsicBeam(ABC):
         pass
 
 
-    @abstractmethod
-    def compute_angular_momentum(self, position_sol: jnp.ndarray,
-                                theta_vector: jnp.ndarray, 
-                                velocity_sol: jnp.ndarray,
-                                n_gauss_points=2) -> jnp.ndarray:
-        """
-        Docstring for compute_angular_momentum
-        position_sol: jnp.ndarray of shape (2, n_nodes, n_times) or (2, n_elem, n_times)
-            Angular displacements over time.
-        theta_sol: jnp.ndarray of shape (n_nodes, n_times) or (n_elem, n_times)
-            Angular displacements over time.
-        lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times) or (2*n_elem, n_times)
-            Linear velocities over time in body frame.
-        n_gauss_points: int
-            Number of gauss points for numerical integration.
-        Returns:
-        --------
-        angular_momentum_sol: jnp.ndarray of shape (n_times,)
-            Angular momentum over time. 
-        """
-        pass
+    # @abstractmethod
+    # def compute_angular_momentum(self, position_sol: jnp.ndarray,
+    #                             theta_vector: jnp.ndarray, 
+    #                             velocity_sol: jnp.ndarray,
+    #                             n_gauss_points=2) -> jnp.ndarray:
+    #     """
+    #     Docstring for compute_angular_momentum
+    #     position_sol: jnp.ndarray of shape (2, n_nodes, n_times) or (2, n_elem, n_times)
+    #         Angular displacements over time.
+    #     theta_sol: jnp.ndarray of shape (n_nodes, n_times) or (n_elem, n_times)
+    #         Angular displacements over time.
+    #     lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times) or (2*n_elem, n_times)
+    #         Linear velocities over time in body frame.
+    #     n_gauss_points: int
+    #         Number of gauss points for numerical integration.
+    #     Returns:
+    #     --------
+    #     angular_momentum_sol: jnp.ndarray of shape (n_times,)
+    #         Angular momentum over time. 
+    #     """
+    #     pass
 
     @partial(jax.jit, static_argnums=0)
     def compute_positions(self, theta_sol: jnp.ndarray, lin_velocity_sol: jnp.ndarray, 
