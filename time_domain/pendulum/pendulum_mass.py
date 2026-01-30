@@ -86,8 +86,8 @@ trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field)
 theta_beam_sol = trajectory[:pinned_beam.n_ang_vel, :]
 coenergy_beam_sol = trajectory[pinned_beam.n_ang_vel:-2, :]
 omega_beam_sol = coenergy_beam_sol[pinned_beam.n_lin_vel:pinned_beam.n_vel]
-theta_L_sol = theta_beam_sol[-1]
-omega_L_sol = omega_beam_sol[-1]
+theta_L_sol = theta_beam_sol[0]
+omega_L_sol = omega_beam_sol[0]
 
 inertial_velocity_end_mass_sol = trajectory[-2:]
 position_end_mass_0 = jnp.array([beam_length, 0])
@@ -120,6 +120,17 @@ plt.legend(loc="lower right")
 plt.tight_layout()
 plt.savefig(folder_results + f"Energies.pdf", format="pdf")
 
+# Plot of energy difference
+plt.figure()
+plt.plot(time_vec[1:], jnp.abs(jnp.diff(total_energy_vec)), 'm')
+# plt.yscale('log')
+plt.xlabel('Time [s]')
+plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+plt.title('Delta Energy vs Time')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(folder_results + f"DeltaEnergy.pdf", format="pdf")
+
 # Plot of energy rate
 plt.figure()
 plt.plot(time_vec, energy_rate)
@@ -133,8 +144,8 @@ plt.savefig(folder_results + f"Energy_rate.pdf", format="pdf")
 plt.figure()
 plt.plot(time_vec, theta_L_sol + jnp.pi/2)
 plt.xlabel('Time [s]')
-plt.ylabel('$\\theta(L,t)$')
-plt.title('End rotation vs Time')
+plt.ylabel('$\\theta$')
+plt.title('Rotation vs Time')
 plt.grid(True)
 plt.savefig(folder_results + f"Angle.pdf", format="pdf")
 plt.tight_layout()
@@ -142,8 +153,8 @@ plt.tight_layout()
 plt.figure()
 plt.plot(time_vec, omega_L_sol)
 plt.xlabel('Time [s]')
-plt.ylabel('$\omega(L,t)$')
-plt.title('End angular velocity vs Time')
+plt.ylabel('$\omega$')
+plt.title('Angular velocity vs Time')
 plt.grid(True)
 plt.savefig(folder_results + f"Omega.pdf", format="pdf")
 plt.tight_layout()

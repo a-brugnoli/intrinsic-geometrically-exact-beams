@@ -332,6 +332,15 @@ plt.savefig(folder_results + f"r_y_P.pdf", format="pdf")
 plt.tight_layout()
 
 
+import pandas as pd
+
+df_r_P = pd.DataFrame({
+    "time": time_vec,
+    "x": r_mid_2[0],
+    "y": r_mid_2[1],
+})
+
+df_r_P.to_csv(folder_results + "time_signal_rP.csv", index=False)
 
 n_plot = 500
 if n_plot<=n_steps:
