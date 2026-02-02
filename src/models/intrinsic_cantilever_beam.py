@@ -9,7 +9,7 @@ from .intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from src.models.intrinsic_clamped_beam import IntrinsicPlanarClampedBeam
 
 
-class IntrinsicPlanarClampedFreeBeam():
+class IntrinsicPlanarCantileverBeam():
     def __init__(self, n_elements, geometrical_props, material_props):
         """
         Represents a geometrically exact planar cantilever beam 

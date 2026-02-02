@@ -13,6 +13,8 @@ from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 from jax import config; config.update("jax_enable_x64", True)
 
+dt = 0.1
+T_end = 15
 
 # Setup output directory
 path_file = os.path.dirname(os.path.abspath(__file__))
@@ -73,8 +75,6 @@ angle_0 = theta_0 * jnp.ones(free_beam.n_ang_vel)
 coenergy_vector_0 = jnp.zeros(free_beam.n_coenergy)
 state_vector_0 = jnp.concatenate([angle_0, coenergy_vector_0])
 
-dt = 0.1
-T_end = 15
 n_steps = int(T_end/dt)
 time_vec = dt * jnp.arange(n_steps + 1)
 

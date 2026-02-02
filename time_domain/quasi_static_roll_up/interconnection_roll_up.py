@@ -1,4 +1,5 @@
-from src.models.intrinsic_cantilever_beam import IntrinsicPlanarClampedFreeBeam
+from turtle import position
+from src.models.intrinsic_cantilever_beam import IntrinsicPlanarCantileverBeam
 from data import geometrical_props, material_props
 import jax.numpy as jnp
 import jax, os
@@ -26,7 +27,7 @@ folder_results = path_file + "/results/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
 
-cantilever_beam = IntrinsicPlanarClampedFreeBeam(n_elements, geometrical_props, material_props)
+cantilever_beam = IntrinsicPlanarCantileverBeam(n_elements, geometrical_props, material_props)
 clamped_half = cantilever_beam.clamped_beam
 free_half = cantilever_beam.free_beam
 
