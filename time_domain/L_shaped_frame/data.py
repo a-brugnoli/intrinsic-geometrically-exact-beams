@@ -8,7 +8,7 @@ T_end = 5
 length = 10.0   # Total length (m)
 
 # Stiff version
-
+case = "stiff/"  # Options: "stiff", "soft"
 G = 5*1e6          # Shear modulus (Pa)
 E = 1e7          # Young's modulus (Pa)
 rho = 1         # Density (kg/m³)
@@ -18,6 +18,7 @@ A = 1         # Cross-sectional area (m^2)
 I = 0.1          # Second moment of area (m^4)
 
 # # Soft version
+# case = "soft/"  # Options: "stiff", "soft"
 
 # G = 1e5         # Shear modulus (Pa)
 # E = 2*1e5          # Young's modulus (Pa)

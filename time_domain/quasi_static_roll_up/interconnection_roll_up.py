@@ -102,18 +102,16 @@ moment_sol_free = coenergy_sol_free[idx_moment_free:, :]
 # moment_sol = jnp.concatenate([moment_sol_clamped, moment_sol_free], axis=0)
 
 clamped_half_x_midpoints = 0.5 * (clamped_half.x_nodes[:-1] + clamped_half.x_nodes[1:])
-free_half_x_midpoints = 0.5 * (free_half.x_nodes[:-1] + free_half.x_nodes[1:])
-free_half_x_midpoints = free_half_x_midpoints + clamped_half.L
-
 initial_position_clamped = jnp.concatenate([clamped_half_x_midpoints,
-                                      jnp.zeros(clamped_half.n_ang_vel)])
+                                      jnp.zeros_like(clamped_half_x_midpoints)])
 position_sol_clamped = clamped_half.compute_positions(theta_sol_clamped, 
                                                            lin_velocity_sol_clamped, 
                                                            initial_position_clamped, 
                                                            time_vec)
 
+
 initial_position_free = jnp.concatenate([free_half.x_nodes + clamped_half.L,
-                                   jnp.zeros(free_half.n_ang_vel)])
+                                   jnp.zeros_like(free_half.x_nodes)])
 position_sol_free = free_half.compute_positions(theta_sol_free, 
                                                      lin_velocity_sol_free, 
                                                      initial_position_free, 

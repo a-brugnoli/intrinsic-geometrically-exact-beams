@@ -123,10 +123,10 @@ class IntrinsicPlanarLShapedBeam():
         B : jnp.ndarray
             The control matrix of the beam
         """
-        B_clamped_left = self.free_beam.assemble_control_matrix()[:, :3]
+        B_free_left = self.free_beam.assemble_control_matrix()[:, :3]
         B_free_right = self.cantilever_beam.assemble_control_matrix()[:, 3:]
 
-        B = jax.scipy.linalg.block_diag(B_clamped_left, B_free_right)
+        B = jax.scipy.linalg.block_diag(B_free_left, B_free_right)
 
         return B
     
@@ -175,7 +175,7 @@ class IntrinsicPlanarLShapedBeam():
         n_theta_free = self.free_beam.n_ang_vel
         theta_free = theta_vector[:n_theta_free]
         theta_cantilever = theta_vector[n_theta_free:]
-
+        
         vel_free = lin_velocity_vector[:self.free_beam.n_lin_vel]
         vel_cantilever = lin_velocity_vector[self.free_beam.n_lin_vel:]
 

@@ -1,6 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+from src.postprocessing.plot_config import configure_matplotlib
+configure_matplotlib()
 
 path_file = os.path.dirname(os.path.abspath(__file__))
 
