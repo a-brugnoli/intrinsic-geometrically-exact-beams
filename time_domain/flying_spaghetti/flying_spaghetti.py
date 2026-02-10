@@ -129,14 +129,10 @@ position_sol = free_beam.compute_positions(theta_sol, lin_velocity_sol, initial_
 # # Angular momentum computation
 velocity_sol = coenergy_sol[:free_beam.n_vel, :]
 
-angular_momentum_sol = free_beam.compute_angular_momentum_spatial(
-    position_sol, theta_sol, velocity_sol, n_gauss_points=2
-)
-
-# initial_position_material = jnp.linalg.solve(free_beam.mass_matrix_positions(),
-#                                              free_beam.vector_field_positions(-angle_0, initial_position_spatial))
-# angular_momentum_sol = free_beam.compute_angular_momentum_material(velocity_sol, 
-#                                     initial_position_material, dt)
+initial_position_material = jnp.linalg.solve(free_beam.mass_matrix_positions(),
+                                             free_beam.vector_field_positions(-angle_0, initial_position_spatial))
+angular_momentum_sol = free_beam.compute_angular_momentum(velocity_sol, 
+                                    initial_position_material, dt)
 
 # Plot of angular momentum trend
 plt.figure()

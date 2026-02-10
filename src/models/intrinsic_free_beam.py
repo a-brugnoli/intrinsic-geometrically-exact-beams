@@ -233,7 +233,7 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
     
 
     @partial(jax.jit, static_argnums=0)
-    def compute_angular_momentum_material(self,
+    def compute_angular_momentum(self,
                                 velocity_sol: jnp.ndarray,
                                 initial_position_material: jnp.ndarray,
                                 dt: float) -> jnp.ndarray:
@@ -274,62 +274,4 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
                         material_position_sol,
                         ang_velocity_sol
                         )
-    
-
-    @partial(jax.jit, static_argnums=0)
-    def compute_angular_momentum_spatial(self, position_sol: jnp.ndarray,
-                                theta_vector: jnp.ndarray, 
-                                velocity_sol: jnp.ndarray,
-                                n_gauss_points=2):
-        """
-        Docstring for compute_angular_momentum
-        position_sol: jnp.ndarray of shape (2, n_nodes, n_times) 
-            Angular displacements over time.
-        theta_sol: jnp.ndarray of shape (n_nodes, n_times) 
-            Angular displacements over time.
-        lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times)
-            Linear velocities over time in body frame.
-        n_gauss_points: int
-            Number of gauss points for numerical integration.
-        Returns:
-        --------
-        angular_momentum_sol: jnp.ndarray of shape (n_times,)
-            Angular momentum over time. 
-        """
-
-        lin_velocity_sol = velocity_sol[:self.n_lin_vel, :]
-        
-        n_times = position_sol.shape[2]
-        assert lin_velocity_sol.shape[1] == n_times, "Temporal dimension mismatch between position_sol and coenergy_sol"
-        assert theta_vector.shape[1] == n_times, "Temporal dimension mismatch between position_sol and theta_vector"
-        
-        assert position_sol.shape[0] == 2, "Position solution must have shape (2, n_nodes, n_times)"
-        assert position_sol.shape[1] == self.n_nodes, "Position solution must have n_nodes equal to beam nodes"   
-
-        ang_velocity_sol = velocity_sol[self.n_lin_vel:self.n_lin_vel + self.n_ang_vel, :]
-        M_omega = mass_matrix_lagrange(self.x_nodes, parameter=self.rotational_inertia) 
-        S_matrix = skew_block_matrix(jnp.eye(self.n_nodes))
-
-        def angular_momentum_single(theta_i, lin_vel_i, pos_i, ang_vel_i):
-            spatial_vel = self.vector_field_positions(
-                theta_i,
-                lin_vel_i,
-                n_gauss_points=n_gauss_points
-            )
-
-            r_i = pos_i.reshape(-1)
-
-            return (
-                self.density_unit_length * (r_i @ S_matrix @ spatial_vel)
-                + jnp.ones(self.n_nodes) @ M_omega @ ang_vel_i
-            )
-        
-        return jax.vmap(angular_momentum_single,
-                        in_axes=(1, 1, 2, 1)   # map over time axis
-                        )(
-                        theta_vector,
-                        lin_velocity_sol,
-                        position_sol,
-                        ang_velocity_sol
-                            )
     
