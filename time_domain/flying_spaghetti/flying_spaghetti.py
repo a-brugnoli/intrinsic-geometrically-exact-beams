@@ -133,6 +133,7 @@ initial_position_material = jnp.linalg.solve(free_beam.mass_matrix_positions(),
                                              free_beam.vector_field_positions(-angle_0, initial_position_spatial))
 
 delta_angular_momentum_sol = free_beam.compute_delta_angular_momentum(position_sol, theta_sol, lin_velocity_sol)
+# delta_angular_momentum_sol = free_beam.compute_delta_angular_momentum(position_sol, theta_sol, velocity_sol)
 
 # Plot of the angular momentum difference
 plt.figure()

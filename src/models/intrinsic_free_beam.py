@@ -280,3 +280,61 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
             )
     
         return deltaJ
+
+
+    # @partial(jax.jit, static_argnums=0)
+    # def compute_delta_angular_momentum(self,
+    #                             position_sol: jnp.ndarray,
+    #                             theta_sol: jnp.ndarray,
+    #                             velocity_sol: jnp.ndarray) -> jnp.ndarray:
+    #     """
+    #     Docstring for compute_angular_momentum
+    #     position_sol: jnp.ndarray of shape (2, n_nodes, n_times)
+    #         Positions of the beam points in spatial frame over time.
+    #     theta_sol: jnp.ndarray of shape (n_nodes, n_times)
+    #         Angular positions of the beam nodes over time.  
+    #     velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times)
+    #         Velocities over time in body frame.
+    #     Returns:
+    #     --------
+    #     angular_momentum_sol: jnp.ndarray of shape (n_times-1,)
+    #         Special difference of angular momentum over time. 
+    #     """
+    #     n_times = position_sol.shape[2]
+
+    #     reshape_position_sol = position_sol.reshape(2*self.n_nodes, n_times)
+
+    #     assert velocity_sol.shape[0] == 3 * self.n_nodes, "Velocity solution has incompatible shape with position solution"
+
+    #     lin_velocity_sol = velocity_sol[:2*self.n_nodes, :]
+    #     ang_velocity_sol = velocity_sol[2*self.n_nodes:, :]
+
+    #     S_matrix = skew_block_matrix(jnp.eye(self.n_nodes))
+
+    #     deltaJ = jnp.zeros(n_times-1)
+        
+    #     for i in range(n_times - 1):
+    #         position_old = reshape_position_sol[:, i]
+    #         position_new = reshape_position_sol[:, i + 1]
+
+    #         ang_velocity_old = ang_velocity_sol[:, i]
+    #         ang_velocity_new = ang_velocity_sol[:, i + 1]
+
+    #         lin_vel_mid = 0.5 * (
+    #             lin_velocity_sol[:, i] + lin_velocity_sol[:, i + 1]
+    #         )
+
+    #         theta_mid = 0.5 * (
+    #             theta_sol[:, i] + theta_sol[:, i + 1]
+    #         )
+
+    #         deltaJ = deltaJ.at[i].set(
+    #             (position_new - position_old).T
+    #             @ S_matrix
+    #             @ self.vector_field_positions(theta_mid, lin_vel_mid) 
+    #             + jnp.ones(self.n_nodes).T @ 
+    #             mass_matrix_lagrange(self.x_nodes, parameter=self.rotational_inertia) @ 
+    #             (ang_velocity_new - ang_velocity_old)
+    #         )
+    
+    #     return deltaJ
