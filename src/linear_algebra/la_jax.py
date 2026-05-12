@@ -184,7 +184,7 @@ def newton_solver_jax(fz_func, z0, tol=1e-12, max_iter=20):
         i=iter_count, res=final_residual
     )
 
-    return z_final, final_residual
+    return z_final, final_residual, iter_count
 
 if __name__ == "__main__":
     # Example usage

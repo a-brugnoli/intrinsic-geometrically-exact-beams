@@ -1,3 +1,5 @@
+import re
+
 from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
 from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
 from data import material_props, material_props_2, \
@@ -160,7 +162,7 @@ state_vector_0 = jnp.concatenate([angle_beam_1_0,
 n_steps = int(T_end / dt_gyr)
 time_vec = dt_gyr * jnp.arange(n_steps + 1)
 
-trajectory = simulate(state_vector_0, dt_gyr, n_steps, E_matrix, vector_field)
+trajectory, iterations = simulate(state_vector_0, dt_gyr, n_steps, E_matrix, vector_field, return_iterations=True)
 
 theta_1_sol = trajectory[:beam_1.n_ang_vel]
 theta_2_sol = trajectory[ind_theta_2:ind_theta_3]
@@ -232,7 +234,7 @@ plt.plot(time_vec, total_intrinsic_energy, 'b--', label='Intrinsic Energy')
 plt.plot(time_vec, total_potential_energy, 'r--', label='Potential Energy')
 plt.plot(time_vec, total_energy, 'k', label='Total Energy')
 plt.xlabel('Time (s)')
-plt.title('Energies of the four bar mechanism')
+#plt.title('Energies of the four bar mechanism')
 plt.grid(True)
 plt.legend()
 plt.savefig(folder_results + f"Energies.pdf", format="pdf")
@@ -241,9 +243,18 @@ plt.tight_layout()
 plt.figure()
 plt.plot(time_vec[:-1], jnp.diff(total_energy), 'b--')
 plt.xlabel('Time (s)')
-plt.title('Delta Energy of the four bar mechanism')
+plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+#plt.title('Delta Energy of the four bar mechanism')
 plt.grid(True)
 plt.savefig(folder_results + f"EnergyRate.pdf", format="pdf")
+plt.tight_layout()
+
+plt.figure()
+plt.plot(iterations, 'b--')
+plt.xlabel('Time step')
+plt.ylabel('Newton iterations')
+plt.grid(True)
+plt.savefig(folder_results + f"NewtonIterations.pdf", format="pdf")
 plt.tight_layout()
 
 

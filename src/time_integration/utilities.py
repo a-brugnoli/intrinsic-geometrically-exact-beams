@@ -16,32 +16,77 @@ def forward_euler(xn, tn, h, E, f: callable):
 
 
 @partial(jax.jit, static_argnums=-1)
+def rk4(xn, tn, h, E, f: callable):
+    """
+    Classic 4th-order Runge-Kutta step for E * ẋ = f(t, x).
+    """
+    def g(t, x):
+        # Effective derivative: ẋ = E⁻¹ f(t, x)
+        return jnp.linalg.solve(E, f(t, x))
+
+    k1 = g(tn, xn)
+    k2 = g(tn + h/2, xn + h/2 * k1)
+    k3 = g(tn + h/2, xn + h/2 * k2)
+    k4 = g(tn + h, xn + h * k3)
+
+    return xn + (h / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+
+
+@partial(jax.jit, static_argnums=-1)
 def implicit_midpoint(xn, tn, h, E, f: callable):
 
     def residual(x_):
         return jnp.dot(E, x_-xn) - h * f(tn + h/2, (x_ + xn)/2)
 
     x0 = xn  # initial guess 
-    xn1, _ = newton_solver_jax(residual, x0)
+    xn1, res, iterations = newton_solver_jax(residual, x0)
 
-    return xn1
+    return xn1, res, iterations
 
 
-@partial(jax.jit, static_argnums=[2, 4, 5])
-def simulate(x0, dt, num_steps, E, f: callable, method="midpoint"):
+# @partial(jax.jit, static_argnums=[2, 4, 5])
+# def simulate(x0, dt, num_steps, E, f: callable, method="midpoint"):
+#     def step_fn(xn, i):
+#         jax.debug.print(
+#         "Progress time integration: {i} / {num_steps}", i=i, num_steps=num_steps
+#     )
+#         if method=="midpoint":
+#             xnp1, res, iterations = implicit_midpoint(xn, i*dt, dt, E, f)
+#         elif method=="Euler explicit":
+#             xnp1 = forward_euler(xn, i*dt, dt, E, f)
+#         return xnp1, xnp1
+
+#     _, xs = jax.lax.scan(step_fn, x0, jnp.arange(num_steps))
+
+#     return jnp.concatenate([x0.reshape(-1, 1), xs.T], axis=1)  
+
+
+@partial(jax.jit, static_argnums=[2, 4, 5, 6])
+def simulate(x0, dt, num_steps, E, f: callable, method="midpoint", return_iterations=False):
     def step_fn(xn, i):
-        jax.debug.print(
-        "Progress time integration: {i} / {num_steps}", i=i, num_steps=num_steps
-    )
-        if method=="midpoint":
-            xnp1 = implicit_midpoint(xn, i*dt, dt, E, f)
-        elif method=="Euler explicit":
+        jax.debug.print("Progress time integration: {i} / {num_steps}", i=i, num_steps=num_steps)
+        
+        if method == "midpoint":
+            xnp1, _, iterations = implicit_midpoint(xn, i*dt, dt, E, f)
+        elif method == "Euler explicit":
             xnp1 = forward_euler(xn, i*dt, dt, E, f)
-        return xnp1, xnp1
+            iterations = 0
+        elif method == "RK4":
+            xnp1 = rk4(xn, i*dt, dt, E, f)
+            iterations = 0
+        else:
+            # Fallback for unknown methods
+            xnp1 = xn
+            iterations = 0
 
-    _, xs = jax.lax.scan(step_fn, x0, jnp.arange(num_steps))
+        return xnp1, (xnp1, iterations)
 
-    return jnp.concatenate([x0.reshape(-1, 1), xs.T], axis=1)  
+    _, (xs, iters) = jax.lax.scan(step_fn, x0, jnp.arange(num_steps))
+    trajectories = jnp.concatenate([x0.reshape(-1, 1), xs.T], axis=1)
+
+    if return_iterations:
+        return trajectories, iters
+    return trajectories
 
 
 @partial(jax.jit, static_argnums=[5, 6])
@@ -68,6 +113,7 @@ def implicit_midpoint_constraints_backward_euler(xn, lambdan, tn, h, E, f: calla
     zn1, _ = newton_solver_jax(residual, z0)
 
     return zn1
+
 
 
 @partial(jax.jit, static_argnums=[5, 6])

@@ -7,6 +7,8 @@ def configure_matplotlib():
 
     rcParams.update({'figure.autolayout': True, 
                      'text.usetex': True,
+                     'font.family': 'serif',
+                     "font.serif": ["Computer Modern Roman"],
                      'text.latex.preamble':r"\usepackage{amsmath}\usepackage{amssymb}\usepackage{bm}",
                      'legend.loc':'upper right',
                      'font.size': SMALL_SIZE,
