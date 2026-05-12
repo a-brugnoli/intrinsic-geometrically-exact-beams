@@ -1,7 +1,8 @@
 from mimetypes import init
 from re import M
+from turtle import pos
 import jax.numpy as jnp
-from numpy import r_
+from numpy import r_, reshape
 from src.fem.triplet_scalar_form import assemble_nontrilinear_scalar_form_cg
 from src.fem.matrices_assembly import mass_matrix_lagrange, discrete_gradient, inner_product_cg_dg
 from src.fem.triplet_vector_form import assemble_2d_cross_form_cg, assemble_2d_cross_form_dg, \
@@ -233,45 +234,49 @@ class IntrinsicPlanarFreeBeam(IntrinsicBeam):
     
 
     @partial(jax.jit, static_argnums=0)
-    def compute_angular_momentum(self,
-                                velocity_sol: jnp.ndarray,
-                                initial_position_material: jnp.ndarray,
-                                dt: float) -> jnp.ndarray:
+    def compute_delta_angular_momentum(self,
+                                position_sol: jnp.ndarray,
+                                theta_sol: jnp.ndarray,
+                                lin_velocity_sol: jnp.ndarray) -> jnp.ndarray:
         """
         Docstring for compute_angular_momentum
-        velocity_sol: jnp.ndarray of shape (3*n_nodes, n_times)
-            Velocities over time in body frame.
-        dt: float
-            Time step size.
+        position_sol: jnp.ndarray of shape (2, n_nodes, n_times)
+            Positions of the beam points in spatial frame over time.
+        theta_sol: jnp.ndarray of shape (n_nodes, n_times)
+            Angular positions of the beam nodes over time.  
+        lin_velocity_sol: jnp.ndarray of shape (2*n_nodes, n_times)
+            Linear velocities over time in body frame.
         Returns:
         --------
-        angular_momentum_sol: jnp.ndarray of shape (n_times,)
-            Angular momentum over time. 
+        angular_momentum_sol: jnp.ndarray of shape (n_times-1,)
+            Special difference of angular momentum over time. 
         """
+        n_times = position_sol.shape[2]
 
-        lin_velocity_sol = velocity_sol[:self.n_lin_vel, :]
+        reshape_position_sol = position_sol.reshape(2*self.n_nodes, n_times)
+
         assert lin_velocity_sol.shape[0] == 2 * self.n_nodes, "Linear velocity solution has incompatible shape with position solution"
 
-        ang_velocity_sol = velocity_sol[self.n_lin_vel:self.n_lin_vel + self.n_ang_vel, :]
-        M_omega = mass_matrix_lagrange(self.x_nodes, parameter=self.rotational_inertia) 
-        M_v = self.density_unit_length *self.mass_matrix_positions()
-
         S_matrix = skew_block_matrix(jnp.eye(self.n_nodes))
-        
-        material_position_sol = implicit_midpoint_integrate(
-                    lin_velocity_sol, dt, initial_position_material)
 
-        def angular_momentum_single(lin_vel_i, pos_i, ang_vel_i):
-
-            return pos_i.T @ S_matrix @ M_v @ lin_vel_i \
-                + jnp.ones(self.n_nodes) @ M_omega @ ang_vel_i
-            
+        deltaJ = jnp.zeros(n_times-1)
         
-        return jax.vmap(angular_momentum_single,
-                        in_axes=(1, 1, 1)   # map over time axis
-                        )(
-                        lin_velocity_sol,
-                        material_position_sol,
-                        ang_velocity_sol
-                        )
+        for i in range(n_times - 1):
+            position_old = reshape_position_sol[:, i]
+            position_new = reshape_position_sol[:, i + 1]
+
+            lin_vel_mid = 0.5 * (
+                lin_velocity_sol[:, i] + lin_velocity_sol[:, i + 1]
+            )
+
+            theta_mid = 0.5 * (
+                theta_sol[:, i] + theta_sol[:, i + 1]
+            )
+
+            deltaJ = deltaJ.at[i].set(
+                (position_new - position_old).T
+                @ S_matrix
+                @ self.vector_field_positions(theta_mid, lin_vel_mid)
+            )
     
+        return deltaJ

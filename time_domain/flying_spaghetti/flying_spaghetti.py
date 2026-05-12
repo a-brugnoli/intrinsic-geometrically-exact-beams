@@ -131,31 +131,18 @@ velocity_sol = coenergy_sol[:free_beam.n_vel, :]
 
 initial_position_material = jnp.linalg.solve(free_beam.mass_matrix_positions(),
                                              free_beam.vector_field_positions(-angle_0, initial_position_spatial))
-angular_momentum_sol = free_beam.compute_angular_momentum(velocity_sol, 
-                                    initial_position_material, dt)
 
-# Plot of angular momentum trend
-plt.figure()
-plt.plot(time_vec, angular_momentum_sol, 'r')
-plt.xlabel('Time [s]')
-plt.ylabel('$J_n \; [\mathrm{kg m^2/s}]$')
-plt.title('Angular Momentum vs Time')
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(folder_results + f"AngularMomentum.pdf", format="pdf")
-
+delta_angular_momentum_sol = free_beam.compute_delta_angular_momentum(position_sol, theta_sol, lin_velocity_sol)
 
 # Plot of the angular momentum difference
 plt.figure()
-plt.plot(time_vec[1:], jnp.abs(jnp.diff(angular_momentum_sol)), 'r')
-plt.yscale('log')
+plt.plot(time_vec[1:], delta_angular_momentum_sol, 'r')
 plt.xlabel('Time [s]')
-plt.ylabel('$|J_{n+1} - J_n|$')
-plt.title('Delta Angular Momentum vs Time')
+plt.ylabel('$\Delta \widetilde{J}_n \; [\mathrm{kg m^2/s}]$')
+plt.title('Conservation law for the Angular Momentum')
 plt.grid(True)
 plt.tight_layout()
 plt.savefig(folder_results + f"DeltaAngularMomentum.pdf", format="pdf")
-
 
 # from src.postprocessing.animate import animate_beam_deformation
 # time_vec_plot = time_vec[time_vec <= 7.5]
