@@ -175,8 +175,8 @@ for j in time_indices:
     plt.gca().add_collection(lc_clamped)
     plt.gca().add_collection(lc_free)
 
-ax.set_xlabel('x')
-ax.set_ylabel('y')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('y [m]')
 # ax.set_title('Beam configurations over time')
 ax.grid(True)
 
@@ -185,9 +185,9 @@ divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
 
 cbar_clamped = fig.colorbar(lc_clamped, cax=cax)
-cbar_clamped.set_label('$M$')
+cbar_clamped.set_label('$M$ [N m]')
 cbar_free = fig.colorbar(lc_free, cax=cax)
-cbar_free.set_label('$M$')
+cbar_free.set_label('$M$ [N m]')
 
 ax.set_xlim(-2.5, 10.5)
 ax.set_ylim(-0.5, 8)

@@ -177,8 +177,8 @@ for j in time_indices:
     lc_free = LineCollection(segments_free, array=colors_free, cmap='viridis', linewidths=2, norm=norm_free)
     ax.add_collection(lc_free)
 
-ax.set_xlabel('x')
-ax.set_ylabel('y')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('y [m]')
 # ax.set_title('Beam configurations over time')
 ax.grid(True)
 
@@ -186,7 +186,7 @@ ax.grid(True)
 divider_free = make_axes_locatable(ax)
 cax = divider_free.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
 cbar_free = fig.colorbar(lc_free, cax=cax)
-cbar_free.set_label('$M$')
+cbar_free.set_label('$M$ [N m]')
 
 ax.set_xlim(-2.5, 10.5)
 ax.set_ylim(-0.5, 8)
@@ -213,8 +213,8 @@ for j in time_indices:
     
     ax.add_collection(lc_clamped)
 
-ax.set_xlabel('x')
-ax.set_ylabel('y')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('y [m]')
 # ax.set_title('Beam configurations over time')
 ax.grid(True)
 
@@ -222,7 +222,7 @@ ax.grid(True)
 divider_clamped = make_axes_locatable(ax)
 cax = divider_clamped.append_axes("right", size="5%", pad=0.1)  # 5% width, small padding
 cbar_clamped = fig.colorbar(lc_clamped, cax=cax)
-cbar_clamped.set_label('$M$')
+cbar_clamped.set_label('$M$ [N m]')
 
 ax.set_xlim(-2.5, 10.5)
 ax.set_ylim(-0.5, 8)

@@ -106,7 +106,7 @@ plt.plot(time_vec[1:], jnp.abs(jnp.diff(energy_vec)), 'm')
 plt.yscale('log')
 plt.ylim(1e-14, 1e2)
 plt.xlabel('Time [s]')
-plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$')
+plt.ylabel('$|H(\mathbf{e}_{n+1}) - H(\mathbf{e}_{n})|$ [J]')
 # plt.title('Delta Energy vs Time')
 plt.grid(True)
 plt.tight_layout()
@@ -181,8 +181,8 @@ for j in time_indices:
     lc = LineCollection(segments, array=colors, cmap='viridis', linewidths=2, norm=norm)
     plt.gca().add_collection(lc)
 
-ax.set_xlabel('x')
-ax.set_ylabel('y')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('y [m]')
 # ax.set_title('Beam configurations over time')
 ax.grid(True)
 
@@ -197,7 +197,7 @@ ax.margins(0)
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="4%", pad=0.05)
 cbar = fig.colorbar(lc, cax=cax)
-cbar.set_label('$M$')
+cbar.set_label('$M$ [N m]')
 
 fig.savefig(
     folder_results + "Configurations.pdf",
