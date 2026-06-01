@@ -25,9 +25,9 @@ def skew_block_matrix(D):
 
 
 @partial(jax.jit, static_argnums=0)
-def finite_difference_jacobian(fz_func, z, eps=None):
+def forward_difference_jacobian(fz_func, z, eps=None):
     """
-    Compute the Jacobian of fz_func at z using finite differences.
+    Compute the Jacobian of fz_func at z using forward differences.
     
     Parameters
     ----------
@@ -55,6 +55,49 @@ def finite_difference_jacobian(fz_func, z, eps=None):
         z_perturbed = z.at[i].add(eps)
         f_perturbed = fz_func(z_perturbed)
         return (f_perturbed - f0) / eps
+    
+    # Compute all columns of the Jacobian
+    J = jax.vmap(col_func)(jnp.arange(n))
+    
+    # Transpose to get (m, n) shape
+    return J.T
+
+
+@partial(jax.jit, static_argnums=0)
+def central_difference_jacobian(fz_func, z, eps=None):
+    """
+    Compute the Jacobian of fz_func at z using central finite differences.
+    
+    Parameters
+    ----------
+    fz_func : Callable[[Array], Array]
+        The function to differentiate.
+    z : Array
+        Point at which to compute the Jacobian. Shape (n,).
+    eps : float, optional
+        Step size for finite differences. If None, uses machine epsilon scaled appropriately.
+    
+    Returns
+    -------
+    J : Array
+        Jacobian matrix with shape (m, n) where m = len(fz_func(z)), n = len(z).
+    """
+    # Use optimal step size based on precision if not specified
+    if eps is None:
+        # Optimal step size for central differences is the cube root of machine epsilon
+        eps = jnp.cbrt(jnp.finfo(z.dtype).eps)
+    
+    n = z.shape[0]
+    
+    # Vectorized computation of all columns
+    def col_func(i):
+        z_plus = z.at[i].add(eps)
+        z_minus = z.at[i].add(-eps)
+        
+        f_plus = fz_func(z_plus)
+        f_minus = fz_func(z_minus)
+        
+        return (f_plus - f_minus) / (2.0 * eps)
     
     # Compute all columns of the Jacobian
     J = jax.vmap(col_func)(jnp.arange(n))
@@ -95,38 +138,35 @@ def newton_solver_fd(fz_func, z0, tol=1e-12, max_iter=20, eps=None):
     Notes
     -----
     - Requires JAX x64 mode enabled: `jax.config.update("jax_enable_x64", True)`
-    - Uses forward finite differences to approximate the Jacobian.
+    - Uses finite differences to approximate the Jacobian.
     - Optimal step size is sqrt(eps_machine) ≈ 1.5e-8 for float64.
     - Solves the linear system `J dz = -fz_func(z)` using dense linear algebra.
     - Uses `jax.lax.while_loop` to keep the computation JIT-compatible.
     """
-    # Ensure z0 is float64 for maximum precision
-    z0 = jnp.asarray(z0, dtype=jnp.float64)
-    
     def body_fn(state):
         z, i = state
         F = fz_func(z)
-        J = finite_difference_jacobian(fz_func, z, eps=eps)
+        J = central_difference_jacobian(fz_func, z, eps)  # or forward_difference_jacobian
         delta = solve(J, -F, assume_a='gen')  # J \ -F
         z_new = z + delta
         return (z_new, i + 1)
-    
+
     def cond_fn(state):
         z, i = state
         return (jnp.linalg.norm(fz_func(z)) > tol) & (i < max_iter)
-    
+
     z_final, iter_count = jax.lax.while_loop(cond_fn, body_fn, (z0, 0))
-    
+
     # Compute residual norm after iteration
     final_residual = jnp.linalg.norm(fz_func(z_final))
     
     # JAX-compatible print
     jax.debug.print(
-        "Newton (FD) terminated after {i} iterations: (residual = {res:.3e})",
+        "Newton terminated after {i} iterations: (residual = {res:.3e})",
         i=iter_count, res=final_residual
     )
-    
-    return z_final, final_residual
+
+    return z_final, final_residual, iter_count
 
 
 @partial(jax.jit, static_argnums=0)
@@ -148,6 +188,9 @@ def newton_solver_jax(fz_func, z0, tol=1e-12, max_iter=20):
         Tolerance for stopping criterion based on the L2 norm of the residual.
     max_iter : int, optional
         Maximum number of iterations allowed. 
+    gradient_method : str, optional
+        Method to compute the Jacobian. Options are "autodiff", "forward_difference", "central_difference". 
+        Default is "autodiff".
 
     Returns
     -------

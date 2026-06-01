@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from jax import config; config.update("jax_enable_x64", True)
+import os
 
 T_end = 10
 
@@ -9,11 +10,17 @@ T_end = 10
 
 dt_gyr = 0.02
 dt_transf = 0.02
+
+n_steps = int(T_end / dt_gyr)
+
 E_2 = 2.1e11
 
 n_elem_1 = 10
 n_elem_2 = 6
 n_elem_3 = 6
+
+node_mid_2 = int(n_elem_2/2)
+
 
 # Beam and material parameters
 L_1 = jnp.sqrt(5)
@@ -76,3 +83,30 @@ material_props_2 = {
     'G': G_2,      # Shear modulus 
     'rho': rho,  # Density
 }
+
+
+path_file = os.path.dirname(os.path.abspath(__file__))
+
+E_2 = material_props_2['E']
+if E_2 > 2.1e10:
+    folder_results = path_file + "/results/gyrator_stiff/"
+else:
+    folder_results = path_file + "/results/gyrator_soft/"
+if not os.path.exists(folder_results):
+    os.makedirs(folder_results)
+
+
+from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
+from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
+
+beam_1 = IntrinsicPlanarPinnedBeam(n_elem_1, geometrical_props_1, material_props)
+beam_2 = IntrinsicPlanarFreeBeam(n_elem_2, geometrical_props_2, material_props_2)
+beam_3 = IntrinsicPlanarPinnedBeam(n_elem_3, geometrical_props_3, material_props)
+
+ind_theta_2 = beam_1.n_ang_vel
+ind_theta_3 = beam_1.n_ang_vel + beam_2.n_ang_vel
+
+ind_coenergy_1 = ind_theta_3 + beam_3.n_ang_vel
+ind_coenergy_2 = ind_coenergy_1 + beam_1.n_coenergy
+ind_coenergy_3 = ind_coenergy_2 + beam_2.n_coenergy
+ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy

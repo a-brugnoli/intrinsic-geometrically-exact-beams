@@ -5,6 +5,8 @@ import jax.numpy as jnp
 import jax
 from functools import partial
 
+newton_solver = newton_solver_fd
+
 
 @partial(jax.jit, static_argnums=-1)
 def forward_euler(xn, tn, h, E, f: callable):
@@ -39,7 +41,7 @@ def implicit_midpoint(xn, tn, h, E, f: callable):
         return jnp.dot(E, x_-xn) - h * f(tn + h/2, (x_ + xn)/2)
 
     x0 = xn  # initial guess 
-    xn1, res, iterations = newton_solver_jax(residual, x0)
+    xn1, res, iterations = newton_solver(residual, x0, tol=1e-5)
 
     return xn1, res, iterations
 
@@ -110,7 +112,7 @@ def implicit_midpoint_constraints_backward_euler(xn, lambdan, tn, h, E, f: calla
         return jnp.concatenate([res_dynamics, res_constraints])
 
     z0 = jnp.concatenate([xn, lambdan])  # initial guess
-    zn1, _ = newton_solver_jax(residual, z0)
+    zn1, _ = newton_solver(residual, z0)
 
     return zn1
 
@@ -139,7 +141,7 @@ def implicit_midpoint_constraints_crank_nicolson(xn, lambdan, tn, h, E, f: calla
         return jnp.concatenate([res_dynamics, res_constraints])
 
     z0 = jnp.concatenate([xn, lambdan])  # initial guess
-    zn1, _ = newton_solver_jax(residual, z0)
+    zn1, _ = newton_solver(residual, z0)
 
     return zn1
 

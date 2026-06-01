@@ -26,6 +26,7 @@ class IntrinsicPlanarLShapedBeam():
         """
 
 
+
         self.free_beam = IntrinsicPlanarFreeBeam(n_elements, geometrical_props, material_props)
         self.cantilever_beam = IntrinsicPlanarCantileverBeam(n_elements, geometrical_props, material_props)
 
