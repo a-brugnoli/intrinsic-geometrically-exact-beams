@@ -3,8 +3,7 @@ from data import material_props, material_props_2, \
     geometrical_props_1, geometrical_props_2, geometrical_props_3, \
     theta_1_0, theta_2_0, theta_3_0, \
     n_elem_1, n_elem_2, n_elem_3, \
-    point_A_0, point_B_0, point_C_0, \
-    dt_transf, T_end
+    point_A_0, point_B_0, point_C_0
 import jax.numpy as jnp
 import jax, os
 from src.time_integration.utilities import simulate, \
@@ -18,6 +17,10 @@ from src.postprocessing.animate import animate_overlay_beam_deformation
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()
 path_file = os.path.dirname(os.path.abspath(__file__))
+
+
+dt = 0.02
+T_end = 10
 
 E_2 = material_props_2['E']
 if E_2 > 2.1e10:
@@ -195,11 +198,11 @@ x_0 = jnp.concatenate([angle_vector_0,
 lambda_0 =  compute_lambda0(IH_matrix, dynamics_vector_field, constraints_matrix, x_0)
 state_vector_0 = jnp.concatenate([x_0, lambda_0])
 
-n_steps = int(T_end/dt_transf)
-time_vec = dt_transf * jnp.arange(n_steps + 1)
+n_steps = int(T_end/dt)
+time_vec = dt * jnp.arange(n_steps + 1)
 
 # # Does not ensure that the constraints are exactly preserved
-trajectory = simulate(state_vector_0, dt_transf, n_steps, E_matrix, vector_field, method="midpoint")
+trajectory = simulate(state_vector_0, dt, n_steps, E_matrix, vector_field, method="midpoint")
 
 trajectory = simulate_exact_constraints(x_0, lambda_0, dt, n_steps, \
              IH_matrix, dynamics_vector_field, constraints_matrix, method="crank_nicolson")

@@ -7,7 +7,7 @@ configure_matplotlib()
 path_file = os.path.dirname(os.path.abspath(__file__))
 
 folder_results = path_file + "/results/"
-case = "gyrator_soft"
+case = "gyrator_s"
 
 df_mine = pd.read_csv( folder_results + "/" + case + "/" + "time_signal_rP.csv")
 
