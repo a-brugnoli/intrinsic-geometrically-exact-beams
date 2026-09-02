@@ -5,13 +5,6 @@ import os
 # E_2 = 2.1e8
 E_2 = 2.1e11
 
-n_elem_1 = 10
-n_elem_2 = 6
-n_elem_3 = 6
-
-node_mid_2 = int(n_elem_2/2)
-
-
 # Beam and material parameters
 L_1 = jnp.sqrt(5)
 L_2 = 1.5
@@ -74,22 +67,6 @@ material_props_2 = {
     'rho': rho,  # Density
 }
 
-
-from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
-from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
-
-beam_1 = IntrinsicPlanarPinnedBeam(n_elem_1, geometrical_props_1, material_props)
-beam_2 = IntrinsicPlanarFreeBeam(n_elem_2, geometrical_props_2, material_props_2)
-beam_3 = IntrinsicPlanarPinnedBeam(n_elem_3, geometrical_props_3, material_props)
-
-ind_theta_2 = beam_1.n_ang_vel
-ind_theta_3 = beam_1.n_ang_vel + beam_2.n_ang_vel
-
-ind_coenergy_1 = ind_theta_3 + beam_3.n_ang_vel
-ind_coenergy_2 = ind_coenergy_1 + beam_1.n_coenergy
-ind_coenergy_3 = ind_coenergy_2 + beam_2.n_coenergy
-ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
-
 import os
 path_file = os.path.dirname(os.path.abspath(__file__))
 if E_2 > 2.1e10:
@@ -98,3 +75,19 @@ else:
     folder_results = path_file + "/results/gyrator_soft/"
 if not os.path.exists(folder_results):
     os.makedirs(folder_results)
+
+
+from src.models.intrinsic_pinned_beam import IntrinsicPlanarPinnedBeam
+from src.models.intrinsic_free_beam import IntrinsicPlanarFreeBeam
+
+
+n_elem_1_base = 10
+n_elem_2_base = 6
+n_elem_3_base = 6
+
+
+def generate_beam_instances(n_elem_1, n_elem_2, n_elem_3):
+    beam_1 = IntrinsicPlanarPinnedBeam(n_elem_1, geometrical_props_1, material_props)
+    beam_2 = IntrinsicPlanarFreeBeam(n_elem_2, geometrical_props_2, material_props_2)
+    beam_3 = IntrinsicPlanarPinnedBeam(n_elem_3, geometrical_props_3, material_props)
+    return beam_1, beam_2, beam_3   

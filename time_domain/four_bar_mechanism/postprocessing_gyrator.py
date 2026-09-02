@@ -1,3 +1,4 @@
+import pickle
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
@@ -6,11 +7,10 @@ from src.postprocessing.animate import animate_overlay_beam_deformation
 from src.postprocessing.plot_config import configure_matplotlib
 configure_matplotlib()  
 import jax.numpy as jnp
-from data import node_mid_2, \
-    beam_1, beam_2, beam_3, \
-    ind_coenergy_1, ind_coenergy_2, ind_coenergy_3, ind_coenergy_end, \
-    folder_results
-from compute_positions import compute_positions
+from data import folder_results, generate_beam_instances, \
+    n_elem_1_base, n_elem_2_base, n_elem_3_base
+
+node_mid_2 = int(n_elem_2_base/2)
 
 dt = 0.02
 
@@ -19,6 +19,21 @@ folder_results_main = folder_results + f"Tend_10/"
 trajectory = jnp.load(folder_results_main + f"trajectory_dt_{dt}.npy")
 time_vec = jnp.load(folder_results_main + f"time_vec_dt_{dt}.npy")
 iterations = jnp.load(folder_results_main + f"iterations_dt_{dt}.npy")
+
+with open(f"{folder_results_main}positions_dt_{dt}.pkl", 'rb') as f:
+    positions = pickle.load(f)
+position_1_sol, position_2_sol, position_3_sol = positions
+
+
+beam_1, beam_2, beam_3 = generate_beam_instances(n_elem_1_base, n_elem_2_base, n_elem_3_base)
+
+ind_theta_2 = beam_1.n_ang_vel
+ind_theta_3 = beam_1.n_ang_vel + beam_2.n_ang_vel
+
+ind_coenergy_1 = ind_theta_3 + beam_3.n_ang_vel
+ind_coenergy_2 = ind_coenergy_1 + beam_1.n_coenergy
+ind_coenergy_3 = ind_coenergy_2 + beam_2.n_coenergy
+ind_coenergy_end = ind_coenergy_3 + beam_3.n_coenergy
 
 coenergy_1_sol = trajectory[ind_coenergy_1:ind_coenergy_2]
 coenergy_2_sol = trajectory[ind_coenergy_2:ind_coenergy_3]
@@ -33,7 +48,6 @@ energy_2_vec, kinetic_energy_2_vec, deformation_energy_2_vec = \
 energy_3_vec, kinetic_energy_3_vec, deformation_energy_3_vec = \
     beam_3.compute_energies(coenergy_3_sol)
 
-position_1_sol, position_2_sol, position_3_sol = compute_positions(trajectory, time_vec)
 potential_energy_1_vec = beam_1.compute_potential_energy(position_1_sol[1])
 potential_energy_2_vec = beam_2.compute_potential_energy(position_2_sol[1])
 potential_energy_3_vec = beam_3.compute_potential_energy(position_3_sol[1])
@@ -41,6 +55,7 @@ potential_energy_3_vec = beam_3.compute_potential_energy(position_3_sol[1])
 total_intrinsic_energy = energy_1_vec + energy_2_vec + energy_3_vec
 total_potential_energy = potential_energy_1_vec + potential_energy_2_vec + potential_energy_3_vec
 total_energy = total_intrinsic_energy + total_potential_energy
+
 plt.figure()
 plt.plot(time_vec, total_intrinsic_energy, 'b--', label='Intrinsic Energy')
 plt.plot(time_vec, total_potential_energy, 'r--', label='Potential Energy')
@@ -178,14 +193,14 @@ position_1_plot = position_1_sol[:, :, ::step_plot]
 position_2_plot = position_2_sol[:, :, ::step_plot]
 position_3_plot = position_3_sol[:, :, ::step_plot]
 
-animation = animate_overlay_beam_deformation(time_vec_plot, 
-                                    [position_1_plot,
-                                    position_2_plot,
-                                    position_3_plot],
-                                    title="Four bar mechanism",
-                                    labels=('Beam 1', 'Beam 2', 'Beam 3'),
-                                    save_path=folder_results + f"Four_bar_mech.gif",
-                                    x_lim=[-0.1, 4],
-                                    y_lim=[-2.5, 2.5])
+# animation = animate_overlay_beam_deformation(time_vec_plot, 
+#                                     [position_1_plot,
+#                                     position_2_plot,
+#                                     position_3_plot],
+#                                     title="Four bar mechanism",
+#                                     labels=('Beam 1', 'Beam 2', 'Beam 3'),
+#                                     save_path=folder_results + f"Four_bar_mech.gif",
+#                                     x_lim=[-0.1, 4],
+#                                     y_lim=[-2.5, 2.5])
 
 plt.show()
