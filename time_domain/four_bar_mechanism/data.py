@@ -14,6 +14,11 @@ theta_1_0 = jnp.atan2(1, 2)
 theta_2_0 = 0
 theta_3_0 = jnp.pi - jnp.arcsin(- (L_1 * jnp.sin(theta_1_0) + L_2*jnp.sin(theta_2_0)) / L_3)
 
+
+print("theta_1_0: ", theta_1_0*180/jnp.pi)
+print("theta_2_0: ", theta_2_0*180/jnp.pi)
+print("theta_3_0: ", theta_3_0*180/jnp.pi)
+
 L_0 = L_1 * jnp.cos(theta_1_0) + L_2 * jnp.cos(theta_2_0) + L_3 * jnp.cos(theta_3_0)
 
 point_A_0 = jnp.array([0, 0])
